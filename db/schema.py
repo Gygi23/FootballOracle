@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS tournament_fixtures (
     away_offsides INT DEFAULT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
- 
+
 CREATE TABLE IF NOT EXISTS tournament_standings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     league_id INT,
@@ -123,20 +123,47 @@ CREATE TABLE IF NOT EXISTS tournament_standings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_team_season (league_id, season, team_id)
 );
- 
+
 CREATE TABLE IF NOT EXISTS api_predictions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     fixture_id INT UNIQUE,
+
     -- API-Football Prediction (Poisson)
     predicted_winner VARCHAR(100),
     home_win_pct FLOAT DEFAULT NULL,
     draw_pct FLOAT DEFAULT NULL,
     away_win_pct FLOAT DEFAULT NULL,
     advice TEXT DEFAULT NULL,
-    -- Buchmacher Odds (nur WM 2026 live)
+
+    -- Buchmacher Konsens-Quoten (Durchschnitt Whitelist-BMs, für Anzeige)
     home_odds FLOAT DEFAULT NULL,
     draw_odds FLOAT DEFAULT NULL,
     away_odds FLOAT DEFAULT NULL,
+
+    -- Implizite Wahrscheinlichkeiten (margin-bereinigt, für Agent)
+    home_win_implied FLOAT DEFAULT NULL,
+    draw_implied FLOAT DEFAULT NULL,
+    away_win_implied FLOAT DEFAULT NULL,
+
+    -- Pinnacle als Sharp Reference (~2% Margin, fairste klassische Quote)
+    home_odds_pinnacle FLOAT DEFAULT NULL,
+    draw_odds_pinnacle FLOAT DEFAULT NULL,
+    away_odds_pinnacle FLOAT DEFAULT NULL,
+
+    -- Betfair als Exchange Reference (kein Margin, fairste Quote überhaupt)
+    home_odds_betfair FLOAT DEFAULT NULL,
+    draw_odds_betfair FLOAT DEFAULT NULL,
+    away_odds_betfair FLOAT DEFAULT NULL,
+
+    -- Margin-Statistiken (Unsicherheitsindikator des Marktes)
+    margin_avg FLOAT DEFAULT NULL,
+    margin_min FLOAT DEFAULT NULL,
+    margin_max FLOAT DEFAULT NULL,
+
+    -- Qualitätsmasse
+    odds_bookmaker_count INT DEFAULT NULL,
+    market_confidence VARCHAR(10) DEFAULT NULL,
+
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
