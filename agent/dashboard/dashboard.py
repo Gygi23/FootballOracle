@@ -256,81 +256,6 @@ def form_badges(form_str):
     return html
 
 
-def odds_bar_html(label, home, draw, away):
-    """
-    Fetter Balken für Konsens-Quoten.
-    Quoten direkt im Balken wenn Segment >= 12% breit.
-    Bei schmalem Segment: Quote als kleines Label unter dem Balken.
-    """
-    if home and draw and away:
-        rh = 1 / home
-        rd = 1 / draw
-        ra = 1 / away
-        total = rh + rd + ra
-        hw = round(rh / total * 100)
-        dw = round(rd / total * 100)
-        aw = 100 - hw - dw
-    else:
-        hw, dw, aw = 33, 33, 34
-
-    h_str = f"{home:.2f}" if home else "–"
-    d_str = f"{draw:.2f}" if draw else "–"
-    a_str = f"{away:.2f}" if away else "–"
-
-    MIN_WIDTH = 12  # Mindestbreite für Text im Balken
-
-    # Text im Balken oder als Badge darunter
-    def seg(css_class, width, text):
-        if width >= MIN_WIDTH:
-            return (
-                f'<div class="{css_class}" style="width:{width}%;display:flex;'
-                f'align-items:center;justify-content:center;flex-shrink:0">'
-                f'<span style="font-size:0.72rem;font-weight:600;'
-                f'color:rgba(255,255,255,0.95);font-family:\'DM Mono\',monospace;'
-                f'white-space:nowrap">{text}</span>'
-                f'</div>'
-            )
-        else:
-            # Zu schmal → leeres Segment
-            return f'<div class="{css_class}" style="width:{width}%;flex-shrink:0"></div>'
-
-    # Labels unter dem Balken für schmale Segmente
-    def sublabel(width, text, align, color):
-        if width < MIN_WIDTH:
-            return (
-                f'<span style="font-size:0.68rem;font-weight:600;color:{color};'
-                f'font-family:\'DM Mono\',monospace;text-align:{align};'
-                f'flex:{width}">{text}</span>'
-            )
-        return f'<span style="flex:{width}"></span>'
-
-    h_sub = sublabel(hw, h_str, "left",   "#4a7fd4")
-    d_sub = sublabel(dw, d_str, "center", "#a0aec0")
-    a_sub = sublabel(aw, a_str, "right",  "#e07070")
-    has_sub = any(w < MIN_WIDTH for w in [hw, dw, aw])
-
-    sub_row = (
-        f'<div style="display:flex;justify-content:space-between;'
-        f'margin-top:3px;padding:0 2px">{h_sub}{d_sub}{a_sub}</div>'
-        if has_sub else ""
-    )
-
-    return (
-        f'<div class="pred-row" style="margin-bottom:{"10px" if has_sub else "8px"};'
-        f'flex-direction:column;align-items:stretch">'
-        f'<div style="display:flex;align-items:center;gap:10px;width:100%">'
-        f'<span class="pred-label">{label}</span>'
-        f'<div class="pred-bar-wrap-lg" style="flex:1">'
-        f'{seg("pred-bar-home", hw, h_str)}'
-        f'{seg("pred-bar-draw", dw, d_str)}'
-        f'{seg("pred-bar-away", aw, a_str)}'
-        f'</div>'
-        f'</div>'
-        f'{sub_row}'
-        f'</div>'
-    )
-
-
 def pred_row_html(label, home, draw, away, is_odds=False):
     """
     Rendert eine Prognose-Zeile mit schmalem Balken.
@@ -374,30 +299,6 @@ def pred_row_html(label, home, draw, away, is_odds=False):
     )
 
 
-def impl_row_html(label, h_impl, d_impl, a_impl):
-    """
-    Rendert eine Zeile mit margin-bereinigten impliziten Wahrscheinlichkeiten (0-1).
-    Balkenbreite = direkt aus den normalisierten Werten.
-    """
-    if h_impl is None:
-        return ""
-    hw = round(h_impl * 100)
-    dw = round(d_impl * 100) if d_impl else 0
-    aw = 100 - hw - dw
-    vs = f"{hw}% · {dw}% · {aw}%"
-    return (
-        f'<div class="pred-row">'
-        f'<span class="pred-label">{label}</span>'
-        f'<div class="pred-bar-wrap">'
-        f'<div class="pred-bar-home" style="width:{hw}%"></div>'
-        f'<div class="pred-bar-draw" style="width:{dw}%"></div>'
-        f'<div class="pred-bar-away" style="width:{aw}%"></div>'
-        f'</div>'
-        f'<span class="pred-values">{vs}</span>'
-        f'</div>'
-    )
-
-
 def confidence_badge(confidence: str | None) -> str:
     if not confidence:
         return ""
@@ -411,6 +312,89 @@ def confidence_badge(confidence: str | None) -> str:
         f'<span style="display:inline-block;padding:2px 8px;border-radius:6px;'
         f'background:{bg};color:{color};font-size:0.68rem;font-weight:600">'
         f'{label}</span>'
+    )
+
+
+def odds_tiles_html(
+    label: str,
+    home_team: str,
+    away_team: str,
+    h_odd: float,
+    d_odd: float,
+    a_odd: float,
+    h_prob: float | None = None,
+    d_prob: float | None = None,
+    a_prob: float | None = None,
+    meta: str = "",
+) -> str:
+    """
+    Rendert drei gleichbreite Kacheln für ein Ergebnis-Tripel.
+
+    Kacheln: Wahrscheinlichkeit % gross, rohe Quote klein darunter.
+    Team-Kopfzeile: ●HEIM links, AUSWÄRTS● rechts (kein Unentschieden-Label).
+
+    h_prob/d_prob/a_prob: vorberechnete 0-1-Wahrscheinlichkeiten (z.B. margin-bereinigt).
+    Wenn None, werden sie aus den Quoten berechnet (1/odd, normalisiert).
+    """
+    # Wahrscheinlichkeiten berechnen falls nicht übergeben
+    if h_prob is None or d_prob is None or a_prob is None:
+        rh = 1 / h_odd if h_odd else 0
+        rd = 1 / d_odd if d_odd else 0
+        ra = 1 / a_odd if a_odd else 0
+        total = rh + rd + ra or 1
+        h_prob = rh / total
+        d_prob = rd / total
+        a_prob = ra / total
+
+    hp = round(h_prob * 100)
+    dp = round(d_prob * 100)
+    ap = 100 - hp - dp  # sicherstellen, dass Summe = 100
+
+    h_str = f"{h_odd:.2f}" if h_odd else "–"
+    d_str = f"{d_odd:.2f}" if d_odd else "–"
+    a_str = f"{a_odd:.2f}" if a_odd else "–"
+
+    home_upper = home_team.upper()
+    away_upper = away_team.upper()
+
+    label_html = (
+        f'<div style="font-size:0.7rem;font-weight:600;color:#8a9ab5;'
+        f'text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">'
+        f'{label}</div>'
+    )
+    header_html = (
+        f'<div style="display:flex;justify-content:space-between;'
+        f'font-size:0.7rem;font-weight:700;margin-bottom:5px">'
+        f'<span style="color:#16213e">● {home_upper}</span>'
+        f'<span style="color:#dc6f5c">{away_upper} ●</span>'
+        f'</div>'
+    )
+    tiles_html = (
+        f'<div style="display:flex;gap:6px;margin-bottom:4px">'
+        f'<div style="flex:1;background:#16213e;border-radius:6px;padding:12px 6px;text-align:center">'
+        f'<span style="font-size:0.9rem;font-weight:700;color:#fff">{hp}%</span></div>'
+        f'<div style="flex:1;background:#eef1f6;border-radius:6px;padding:12px 6px;text-align:center">'
+        f'<span style="font-size:0.9rem;font-weight:700;color:#475569">{dp}%</span></div>'
+        f'<div style="flex:1;background:#dc6f5c;border-radius:6px;padding:12px 6px;text-align:center">'
+        f'<span style="font-size:0.9rem;font-weight:700;color:#fff">{ap}%</span></div>'
+        f'</div>'
+    )
+    odds_html = (
+        f'<div style="display:flex;gap:6px;margin-bottom:4px">'
+        f'<div style="flex:1;text-align:center;font-size:0.68rem;color:#9aa6ba;font-family:\'DM Mono\',monospace">{h_str}</div>'
+        f'<div style="flex:1;text-align:center;font-size:0.68rem;color:#9aa6ba;font-family:\'DM Mono\',monospace">{d_str}</div>'
+        f'<div style="flex:1;text-align:center;font-size:0.68rem;color:#9aa6ba;font-family:\'DM Mono\',monospace">{a_str}</div>'
+        f'</div>'
+    )
+    meta_html = (
+        f'<div style="font-size:0.65rem;color:#c0cadb;text-align:right;margin-bottom:4px">{meta}</div>'
+        if meta else ""
+    )
+
+    return (
+        f'<div style="margin-bottom:14px">'
+        f'{label_html}{header_html}{tiles_html}{odds_html}{meta_html}'
+        f'</div>'
     )
 
 
@@ -501,12 +485,13 @@ def render_match_card(fx, api_preds, agent_preds):
             bm_cnt = api_p.get("odds_bookmaker_count")
             margin = api_p.get("margin_avg")
 
-            # Konsens-Quoten — fetter Balken mit Quoten drin
-            st.markdown(odds_bar_html("Konsens-Quoten", h_odd, d_odd, a_odd), unsafe_allow_html=True)
+            # Konsens-Quoten — Kacheln (TODO Task 4: odds_tiles_html ersetzen)
+            # st.markdown(odds_bar_html("Konsens-Quoten", h_odd, d_odd, a_odd), unsafe_allow_html=True)
 
             # Implizite Wahrscheinlichkeiten (margin-bereinigt, direkt aus DB)
-            if h_impl is not None:
-                st.markdown(impl_row_html("Markt impl. %", h_impl, d_impl, a_impl), unsafe_allow_html=True)
+            # TODO Task 4: impl_row_html ersetzt durch odds_tiles_html
+            # if h_impl is not None:
+            #     st.markdown(impl_row_html("Markt impl. %", h_impl, d_impl, a_impl), unsafe_allow_html=True)
 
             # Pinnacle
             if h_pin:
