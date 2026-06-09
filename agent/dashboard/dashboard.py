@@ -446,7 +446,7 @@ def render_match_card(fx, api_preds, agent_preds):
 
     status_color = {
         "NS": "#a0aec0", "1H": "#22c55e", "HT": "#f59e0b",
-        "2H": "#22c55e", "FT": "#4a7fd4", "AET": "#4a7fd4", "PEN": "#4a7fd4"
+        "2H": "#22c55e", "FT": "#16213e", "AET": "#16213e", "PEN": "#16213e"
     }.get(status, "#a0aec0")
     status_label = {
         "NS": "Ausstehend", "1H": "🔴 1. HZ", "HT": "🟡 Pause",
@@ -524,39 +524,60 @@ def render_match_card(fx, api_preds, agent_preds):
             bm_cnt = api_p.get("odds_bookmaker_count")
             margin = api_p.get("margin_avg")
 
-            # Konsens-Quoten — Kacheln (TODO Task 4: odds_tiles_html ersetzen)
-            # st.markdown(odds_bar_html("Konsens-Quoten", h_odd, d_odd, a_odd), unsafe_allow_html=True)
-
-            # Implizite Wahrscheinlichkeiten (margin-bereinigt, direkt aus DB)
-            # TODO Task 4: impl_row_html ersetzt durch odds_tiles_html
-            # if h_impl is not None:
-            #     st.markdown(impl_row_html("Markt impl. %", h_impl, d_impl, a_impl), unsafe_allow_html=True)
-
-            # Pinnacle
-            if h_pin:
-                st.markdown(
-                    pred_row_html("Pinnacle", h_pin, api_p.get("draw_odds_pinnacle"), api_p.get("away_odds_pinnacle"), is_odds=True),
-                    unsafe_allow_html=True
-                )
-
-            # Betfair
-            if h_bf:
-                st.markdown(
-                    pred_row_html("Betfair", h_bf, api_p.get("draw_odds_betfair"), api_p.get("away_odds_betfair"), is_odds=True),
-                    unsafe_allow_html=True
-                )
-
-            # Margin + BM-Anzahl
+            # ── Konsens-Quoten (Kacheln) ──────────────────────────────────
             meta_parts = []
-            if margin is not None:
-                meta_parts.append(f"Ø Margin {round(margin * 100, 1)}%")
             if bm_cnt is not None:
                 meta_parts.append(f"{bm_cnt} Bookmakers")
-            if meta_parts:
+            if margin is not None:
+                meta_parts.append(f"Margin {round(margin * 100, 1)}%")
+            meta_str = f"Konsens · {' · '.join(meta_parts)}" if meta_parts else ""
+
+            st.markdown(
+                odds_tiles_html(
+                    label="Konsens-Quoten",
+                    home_team=home, away_team=away,
+                    h_odd=h_odd, d_odd=d_odd, a_odd=a_odd,
+                    meta=meta_str,
+                ),
+                unsafe_allow_html=True,
+            )
+
+            # ── Implizite Wahrscheinlichkeiten (margin-bereinigt) ─────────
+            if h_impl is not None and d_impl is not None and a_impl is not None:
                 st.markdown(
-                    f'<div style="font-size:0.68rem;color:#b0bccc;margin-top:4px">'
-                    f'{" · ".join(meta_parts)}</div>',
-                    unsafe_allow_html=True
+                    odds_tiles_html(
+                        label="Implizite W'keiten",
+                        home_team=home, away_team=away,
+                        h_odd=0, d_odd=0, a_odd=0,
+                        h_prob=h_impl, d_prob=d_impl, a_prob=a_impl,
+                    ),
+                    unsafe_allow_html=True,
+                )
+
+            # ── Pinnacle ──────────────────────────────────────────────────
+            if h_pin:
+                st.markdown(
+                    odds_tiles_html(
+                        label="Pinnacle",
+                        home_team=home, away_team=away,
+                        h_odd=h_pin,
+                        d_odd=api_p.get("draw_odds_pinnacle") or 0,
+                        a_odd=api_p.get("away_odds_pinnacle") or 0,
+                    ),
+                    unsafe_allow_html=True,
+                )
+
+            # ── Betfair ───────────────────────────────────────────────────
+            if h_bf:
+                st.markdown(
+                    odds_tiles_html(
+                        label="Betfair",
+                        home_team=home, away_team=away,
+                        h_odd=h_bf,
+                        d_odd=api_p.get("draw_odds_betfair") or 0,
+                        a_odd=api_p.get("away_odds_betfair") or 0,
+                    ),
+                    unsafe_allow_html=True,
                 )
 
         elif not pred_html:
@@ -581,11 +602,11 @@ def render_match_card(fx, api_preds, agent_preds):
                     f'align-items:center;gap:8px;margin-bottom:6px">'
                     f'<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">'
                     f'<span style="font-size:0.75rem;font-weight:600;color:#1a2540">{h}</span>'
-                    f'<div style="height:10px;width:{h_pct}%;background:#4a7fd4;border-radius:3px;min-width:2px"></div>'
+                    f'<div style="height:10px;width:{h_pct}%;background:#16213e;border-radius:3px;min-width:2px"></div>'
                     f'</div>'
                     f'<span style="font-size:0.68rem;color:#2d3a50;white-space:nowrap;text-align:center">{label}</span>'
                     f'<div style="display:flex;align-items:center;gap:6px">'
-                    f'<div style="height:10px;width:{a_pct}%;background:#e07070;border-radius:3px;min-width:2px"></div>'
+                    f'<div style="height:10px;width:{a_pct}%;background:#dc6f5c;border-radius:3px;min-width:2px"></div>'
                     f'<span style="font-size:0.75rem;font-weight:600;color:#1a2540">{a}</span>'
                     f'</div></div>'
                 )
@@ -610,9 +631,9 @@ def render_match_card(fx, api_preds, agent_preds):
                 st.markdown(
                     f'<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,0.06)">'
                     f'<div style="display:grid;grid-template-columns:1fr auto 1fr;margin-bottom:10px">'
-                    f'<span style="font-size:0.72rem;font-weight:600;color:#4a7fd4">{home}</span>'
+                    f'<span style="font-size:0.72rem;font-weight:600;color:#16213e">{home}</span>'
                     f'<span style="font-size:0.68rem;color:#a0aec0;text-align:center">Statistiken</span>'
-                    f'<span style="font-size:0.72rem;font-weight:600;color:#e07070;text-align:right">{away}</span>'
+                    f'<span style="font-size:0.72rem;font-weight:600;color:#dc6f5c;text-align:right">{away}</span>'
                     f'</div>{bars}</div>',
                     unsafe_allow_html=True
                 )

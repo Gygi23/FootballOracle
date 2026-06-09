@@ -132,3 +132,38 @@ def test_ft_match_shows_score():
                 status="FT", stage="Group Stage - 1",
                 match_date="2026-06-20 15:00", group="Group E")
     assert "3" in label and "1" in label
+
+
+# ── Task 4: Wettmarkt-Rendering (integration helpers) ───────────────────────
+
+def test_odds_tiles_html_label_shown():
+    """The label string is rendered in the output."""
+    from agent.dashboard.dashboard import odds_tiles_html
+    html = odds_tiles_html(
+        label="Konsens-Quoten",
+        home_team="Germany", away_team="Spain",
+        h_odd=2.10, d_odd=3.40, a_odd=3.20,
+    )
+    assert "Konsens-Quoten" in html
+
+
+def test_odds_tiles_html_meta_in_konsens_block():
+    """Meta string (bookmakers + margin) appears in output when provided."""
+    from agent.dashboard.dashboard import odds_tiles_html
+    html = odds_tiles_html(
+        label="Konsens-Quoten",
+        home_team="Germany", away_team="Spain",
+        h_odd=2.10, d_odd=3.40, a_odd=3.20,
+        meta="Konsens · 8 Bookmakers · Margin 3.5%",
+    )
+    assert "8 Bookmakers" in html
+    assert "3.5%" in html
+
+
+def test_stat_bar_uses_navy_not_old_blue():
+    """stat_bar home color uses #16213e (navy) not old #4a7fd4."""
+    import inspect
+    from agent.dashboard.dashboard import render_match_card
+    src = inspect.getsource(render_match_card)
+    assert "#16213e" in src
+    assert "#4a7fd4" not in src
