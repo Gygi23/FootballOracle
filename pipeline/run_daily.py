@@ -133,7 +133,7 @@ def update_standings():
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 def update_today_fixtures():
-    """Scores + Status heutiger Spiele updaten."""
+    """Scores, Status und Spielstatistiken heutiger Spiele updaten."""
     print("Heutige Fixtures updaten...")
     today = date.today().isoformat()
 
@@ -150,23 +150,17 @@ def update_today_fixtures():
         print("  Keine Spiele heute")
         return
 
-    with engine.connect() as conn:
-        for fx in fixtures:
-            conn.execute(text("""
-                UPDATE tournament_fixtures SET
-                    status     = :status,
-                    home_score = :home_score,
-                    away_score = :away_score,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE fixture_id = :fixture_id
-            """), {
-                "fixture_id": fx["fixture"]["id"],
-                "status":     fx["fixture"]["status"]["short"],
-                "home_score": fx["goals"]["home"],
-                "away_score": fx["goals"]["away"],
-            })
-        conn.commit()
-    print(f"  {len(fixtures)} Fixtures geupdated")
+    # Fixture IDs holen und mit Stats neu laden (1 Call für alle)
+    ids_str = "-".join(str(fx["fixture"]["id"]) for fx in fixtures)
+    data_with_stats = api_get("fixtures", {"ids": ids_str})
+    if data_with_stats:
+        fixtures = data_with_stats.get("response", fixtures)
+
+    from fetch_live import update_fixture
+    for fx in fixtures:
+        update_fixture(fx)
+
+    print(f"  {len(fixtures)} Fixtures + Statistiken geupdated")
 
 
 def ensure_upcoming_fixtures():

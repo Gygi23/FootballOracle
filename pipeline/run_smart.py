@@ -151,9 +151,12 @@ def run_odds_refresh():
 
 
 def run_scores_update():
-    """Nur Scores laufender Spiele updaten (1 API Call)."""
-    from run_daily import update_today_fixtures
-    update_today_fixtures()
+    """Scores + alle Spielstatistiken laufender Spiele updaten."""
+    from fetch_live import run_live_update
+    last_snapshot = get_last_run_time('last_snapshot')
+    new_snapshot_time = run_live_update(last_snapshot)
+    if new_snapshot_time != last_snapshot:
+        log_run('last_snapshot')
 
 
 def run_post_game_update():

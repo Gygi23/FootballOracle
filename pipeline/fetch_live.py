@@ -95,7 +95,7 @@ def get_next_kickoff() -> datetime | None:
         """), {"season": SEASON, "league": LEAGUE_ID}).fetchone()
     return result[0] if result else None
 
-# def get_live_fixture_ids() -> list[int]:
+def get_live_fixture_ids() -> list[int]:
     data = api_get("fixtures", {
         "league": LEAGUE_ID,
         "season": SEASON,
@@ -105,9 +105,6 @@ def get_next_kickoff() -> datetime | None:
         return []
     return [f["fixture"]["id"] for f in data.get("response", [])]
 
-def get_live_fixture_ids() -> list[int]:
-    return [1489369, 1538999, 1539000]
- 
 def is_match_day() -> bool:
     return len(get_live_fixture_ids()) > 0
 
@@ -353,9 +350,7 @@ def run_live_update(last_snapshot_time: datetime) -> datetime:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {len(fixture_ids)} Live-Spiel(e)")
 
     ids_str = "-".join(str(fid) for fid in fixture_ids)
-    # data = api_get("fixtures", {"ids": ids_str})
-    from tests.mock_api import mock_live_response
-    data = mock_live_response(fixture_ids)
+    data = api_get("fixtures", {"ids": ids_str})
     if not data:
         return last_snapshot_time
 
