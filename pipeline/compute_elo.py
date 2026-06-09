@@ -121,6 +121,9 @@ def run():
         elo[home], elo[away] = _update(e_home, e_away, result, k)
         processed += 1
 
+    # ── Snapshot vor WM-Spielen (pre-WM ELO) ─────────────────────────────────
+    elo_pre_wm = dict(elo)  # Kopie nach historischen Matches, vor WM 2026
+
     # WM 2026 mit höchstem K-Faktor
     for row in wm_rows:
         home, away = row.home_team, row.away_team
@@ -138,17 +141,22 @@ def run():
     top = sorted(elo.items(), key=lambda x: -x[1])[:10]
     print("  Top-10 ELO:")
     for i, (team, rating) in enumerate(top, 1):
-        print(f"    {i:2}. {team:<30} {rating:.0f}")
+        pre = elo_pre_wm.get(team, BASE_ELO)
+        delta = rating - pre
+        sign  = "▲" if delta >= 0 else "▼"
+        print(f"    {i:2}. {team:<30} {rating:.0f}  ({sign}{abs(delta):.0f} WM)")
 
     # ── In team_stats speichern ───────────────────────────────────────────────
     updated = 0
     with engine.connect() as conn:
         for team, rating in elo.items():
+            pre_wm = elo_pre_wm.get(team, BASE_ELO)
             result = conn.execute(text("""
                 UPDATE team_stats
-                SET elo_rating = :elo
+                SET elo_rating        = :elo,
+                    elo_rating_pre_wm = :pre_wm
                 WHERE team_name = :team
-            """), {"elo": round(rating, 2), "team": team})
+            """), {"elo": round(rating, 2), "pre_wm": round(pre_wm, 2), "team": team})
             updated += result.rowcount
         conn.commit()
 

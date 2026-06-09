@@ -318,9 +318,9 @@ def confidence_badge(confidence: str | None) -> str:
     if not confidence:
         return ""
     cfg = {
-        "HIGH":   ("Markt sicher",  "#d4edda", "#1a6b2e"),
-        "MEDIUM": ("Markt neutral", "#fff3cd", "#856404"),
-        "LOW":    ("Offenes Spiel", "#f8d7da", "#842029"),
+        "HIGH":   ("Sicherer Markt",   "#d4edda", "#1a6b2e"),
+        "MEDIUM": ("Normaler Markt",   "#fff3cd", "#856404"),
+        "LOW":    ("Unsicherer Markt", "#f8d7da", "#842029"),
     }
     label, bg, color = cfg.get(confidence.upper(), ("–", "#f0f0f0", "#888"))
     return (
@@ -569,9 +569,9 @@ def wettmarkt_html(home: str, away: str, api_p: dict, is_finished: bool = False)
 
     # ── Legend + Confidence badge ─────────────────────────────────────────────
     conf_map = {
-        "HIGH":   ("Klarer Favorit",        "#d4edda", "#1a6b2e"),
-        "MEDIUM": ("Ausgeglichener Markt",  "#fff3cd", "#856404"),
-        "LOW":    ("Offenes Spiel",         "#f8d7da", "#842029"),
+        "HIGH":   ("Sicherer Markt",   "#d4edda", "#1a6b2e"),
+        "MEDIUM": ("Normaler Markt",   "#fff3cd", "#856404"),
+        "LOW":    ("Unsicherer Markt", "#f8d7da", "#842029"),
     }
     conf_label, conf_bg, conf_color = conf_map.get(conf or "", ("", "#f0f0f0", "#888"))
     conf_badge_html = (
@@ -764,7 +764,7 @@ def render_match_card(fx, api_preds, agent_preds):
 
 
 @st.cache_data(ttl=300)
-def _load_team_tournament_summary(team_name: str) -> dict:
+def load_team_tournament_summary(team_name: str) -> dict:
     from agent.tools.mysql_tools import get_tournament_team_summary
     import json
     r = json.loads(get_tournament_team_summary(team_name, season=2026))
@@ -772,7 +772,23 @@ def _load_team_tournament_summary(team_name: str) -> dict:
     return rows[0] if rows else {}
 
 
-def _team_stat_tile(label: str, value, pct: bool = False) -> str:
+@st.cache_data(ttl=300)
+def load_team_elo(team_name: str) -> dict:
+    """ELO-Rating + Pre-WM-ELO aus team_stats."""
+    from agent.tools.mysql_tools import get_engine
+    from sqlalchemy import text as sa_text
+    with get_engine().connect() as conn:
+        row = conn.execute(sa_text("""
+            SELECT elo_rating, elo_rating_pre_wm
+            FROM team_stats WHERE team_name = :t
+        """), {"t": team_name}).fetchone()
+    if row:
+        return {"elo_rating": float(row[0]) if row[0] else None,
+                "elo_rating_pre_wm": float(row[1]) if row[1] else None}
+    return {}
+
+
+def team_stat_tile(label: str, value, pct: bool = False) -> str:
     if value is None:
         return ""
     display = f"{value:.1f}%" if pct else str(int(value)) if isinstance(value, (int, float)) else str(value)
@@ -780,6 +796,30 @@ def _team_stat_tile(label: str, value, pct: bool = False) -> str:
         f'<div style="background:rgba(0,0,0,0.03);border-radius:8px;padding:8px 10px;text-align:center">'
         f'<div style="font-size:1rem;font-weight:700;color:#16213e">{display}</div>'
         f'<div style="font-size:0.62rem;color:#94a3b8;margin-top:2px">{label}</div>'
+        f'</div>'
+    )
+
+
+def elo_tile(elo: float | None, pre_wm: float | None) -> str:
+    """ELO-Kachel mit WM-Veränderungspfeil."""
+    if elo is None:
+        return ""
+    elo_int = int(round(elo))
+    delta_html = ""
+    if pre_wm is not None:
+        delta = elo - pre_wm
+        if abs(delta) >= 1:
+            arrow  = "▲" if delta > 0 else "▼"
+            color  = "#16a34a" if delta > 0 else "#dc2626"
+            delta_html = (
+                f'<div style="font-size:0.6rem;color:{color};font-weight:600;margin-top:1px">'
+                f'{arrow}{abs(delta):.0f} WM</div>'
+            )
+    return (
+        f'<div style="background:rgba(0,0,0,0.03);border-radius:8px;padding:8px 10px;text-align:center">'
+        f'<div style="font-size:1rem;font-weight:700;color:#16213e">{elo_int}</div>'
+        f'<div style="font-size:0.62rem;color:#94a3b8;margin-top:2px">ELO</div>'
+        f'{delta_html}'
         f'</div>'
     )
 
@@ -943,7 +983,8 @@ elif st.session_state.page == "gruppe":
         if all_team_names:
             sel_team = st.selectbox("Team wählen", all_team_names, label_visibility="collapsed", key="team_stats_select")
             if sel_team:
-                ts = _load_team_tournament_summary(sel_team)
+                ts  = load_team_tournament_summary(sel_team)
+                elo = load_team_elo(sel_team)
                 if ts and ts.get("games_played", 0):
                     g = ts["games_played"]
                     gf, ga = ts.get("goals_scored") or 0, ts.get("goals_conceded") or 0
@@ -956,20 +997,32 @@ elif st.session_state.page == "gruppe":
                         f'</div>'
                         # Stat-Grid
                         f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'
-                        + _team_stat_tile("Schüsse aufs Tor",   ts.get("shots_on_target"))
-                        + _team_stat_tile("Schüsse gesamt",     ts.get("total_shots"))
-                        + _team_stat_tile("Im Strafraum",       ts.get("shots_insidebox"))
-                        + _team_stat_tile("Ballbesitz Ø",       ts.get("avg_possession"), pct=True)
-                        + _team_stat_tile("Pässe gesamt",       ts.get("total_passes"))
-                        + _team_stat_tile("Pass-Genauigkeit",   ts.get("avg_pass_accuracy"), pct=True)
-                        + _team_stat_tile("Paraden",            ts.get("goalkeeper_saves"))
-                        + _team_stat_tile("Fouls",              ts.get("fouls"))
+                        + elo_tile(elo.get("elo_rating"), elo.get("elo_rating_pre_wm"))
+                        + team_stat_tile("Tore erzielt",       ts.get("goals_scored"))
+                        + team_stat_tile("Tore erhalten",      ts.get("goals_conceded"))
+                        + team_stat_tile("Schüsse aufs Tor",   ts.get("shots_on_target"))
+                        + team_stat_tile("Schüsse gesamt",     ts.get("total_shots"))
+                        + team_stat_tile("Im Strafraum",       ts.get("shots_insidebox"))
+                        + team_stat_tile("Ballbesitz Ø",       ts.get("avg_possession"), pct=True)
+                        + team_stat_tile("Pässe gesamt",       ts.get("total_passes"))
+                        + team_stat_tile("Pass-Genauigkeit",   ts.get("avg_pass_accuracy"), pct=True)
+                        + team_stat_tile("Paraden",            ts.get("goalkeeper_saves"))
+                        + team_stat_tile("Fouls",              ts.get("fouls"))
                         + f'</div>'
                         f'</div>',
                         unsafe_allow_html=True
                     )
                 else:
-                    st.markdown(f'<div class="glass-sm"><p style="color:#a0aec0;font-size:0.82rem">{sel_team} hat noch keine WM-Spiele absolviert.</p></div>', unsafe_allow_html=True)
+                    # Kein WM-Spiel absolviert — nur ELO anzeigen
+                    elo_html = elo_tile(elo.get("elo_rating"), elo.get("elo_rating_pre_wm"))
+                    st.markdown(
+                        f'<div class="glass-sm">'
+                        f'<div style="display:flex;align-items:center;gap:12px">'
+                        f'{elo_html}'
+                        f'<p style="color:#a0aec0;font-size:0.82rem;margin:0">{sel_team} hat noch keine WM-Spiele absolviert.</p>'
+                        f'</div></div>',
+                        unsafe_allow_html=True
+                    )
 
         # ── Spiele nach Gruppe ────────────────────────────────────────────────
         st.markdown('<div class="section-title" style="margin-top:0.5rem">Spiele</div>', unsafe_allow_html=True)

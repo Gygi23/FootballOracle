@@ -1,31 +1,38 @@
-# Secrets & Umgebung
+# ── Secrets & Umgebung ────────────────────────────────────────────────────────
 .env
+.env.*
+
+# ── Virtuelle Umgebung ────────────────────────────────────────────────────────
 .venv/
+venv/
+env/
 
-# Claude Code lokale Settings
-.claude/
-
-# Superpowers / Playwright
-.superpowers/
-.playwright-mcp
-
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
+.mypy_cache/
 
-# macOS
-.DS_Store
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/*.log
+logs/*.txt
 
-# Scratch-Dateien
-test_db.py
-agent/test-gemini.py
+# ── Daten (auto-generiert) ────────────────────────────────────────────────────
+data/processed/
 
-# ML-Modelle (binär, oft gross)
+# ── ML-Modelle ────────────────────────────────────────────────────────────────
 *.pkl
 *.h5
 *.joblib
 *.model
 
-# Daten (auto-generiert / gross)
-data/processed/logs/
+# ── Tools & IDEs ──────────────────────────────────────────────────────────────
+.claude/
+.superpowers/
+.playwright-mcp
+.vscode/
+.idea/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store

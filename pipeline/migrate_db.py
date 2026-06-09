@@ -49,6 +49,7 @@ MIGRATIONS = [
 
     # ── 2026-06-09: ELO-Rating ───────────────────────────────────────────────
     ("team_stats",          "elo_rating",             "DECIMAL(8,2) DEFAULT 1500.0"),
+    ("team_stats",          "elo_rating_pre_wm",      "DECIMAL(8,2) DEFAULT NULL"),
 ]
 
 

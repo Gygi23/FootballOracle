@@ -146,6 +146,8 @@ def get_team_stats(team_name: str) -> str:
     SELECT
         team_name,
         fifa_rank,
+        elo_rating,
+        elo_rating_pre_wm,
         win_rate,
         avg_goals,
         avg_conceded,
@@ -167,7 +169,8 @@ TOOL_GET_TEAM_STATS = {
     "name": "get_team_stats",
     "description": (
         "Holt manuell berechnete historische Team-Statistiken aus team_stats. "
-        "Enthaelt u.a. FIFA-Rang, Siegesrate, durchschnittliche Tore, Gegentore, "
+        "Enthaelt u.a. ELO-Rating (berechnet aus 15.000+ Spielen, hoeher = staerker), "
+        "FIFA-Rang, Siegesrate, durchschnittliche Tore, Gegentore, "
         "Tordifferenz, letzte Form, Clean-Sheet-Rate und Penalty-Statistik."
     ),
     "input_schema": {

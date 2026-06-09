@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS team_stats (
     shootout_wins INT DEFAULT 0,
     shootout_total INT DEFAULT 0,
     shootout_win_rate FLOAT DEFAULT NULL,
+    elo_rating DECIMAL(8,2) DEFAULT 1500.0,
+    elo_rating_pre_wm DECIMAL(8,2) DEFAULT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
@@ -78,6 +80,8 @@ CREATE TABLE IF NOT EXISTS tournament_fixtures (
     away_blocked_shots INT DEFAULT NULL,
     home_shots_insidebox INT DEFAULT NULL,
     away_shots_insidebox INT DEFAULT NULL,
+    home_shots_outsidebox INT DEFAULT NULL,
+    away_shots_outsidebox INT DEFAULT NULL,
     -- Defensiv
     home_saves INT DEFAULT NULL,
     away_saves INT DEFAULT NULL,
@@ -140,6 +144,11 @@ CREATE TABLE IF NOT EXISTS api_predictions (
     draw_odds FLOAT DEFAULT NULL,
     away_odds FLOAT DEFAULT NULL,
 
+    -- Eröffnungsquoten (werden nie überschrieben → Quotenbewegung)
+    home_odds_open DECIMAL(6,3) DEFAULT NULL,
+    draw_odds_open DECIMAL(6,3) DEFAULT NULL,
+    away_odds_open DECIMAL(6,3) DEFAULT NULL,
+
     -- Implizite Wahrscheinlichkeiten (margin-bereinigt, für Agent)
     home_win_implied FLOAT DEFAULT NULL,
     draw_implied FLOAT DEFAULT NULL,
@@ -185,6 +194,8 @@ CREATE TABLE IF NOT EXISTS fixture_snapshots (
     away_shots_total INT DEFAULT NULL,
     home_shots_insidebox INT DEFAULT NULL,
     away_shots_insidebox INT DEFAULT NULL,
+    home_shots_outsidebox INT DEFAULT NULL,
+    away_shots_outsidebox INT DEFAULT NULL,
     home_blocked_shots INT DEFAULT NULL,
     away_blocked_shots INT DEFAULT NULL,
     home_corners INT DEFAULT NULL,
