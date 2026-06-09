@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 from odds_extractor import fetch_upcoming_odds
+from compute_kpis import run as update_team_stats
 
 load_dotenv()
 
@@ -339,6 +340,10 @@ def main():
 
     # 5. Odds für nächste 3 Tage (via odds_extractor.py)
     fetch_upcoming_odds(api_get)
+    print()
+
+    # 6. Team-KPIs aktualisieren (historisch + abgeschlossene WM-2026-Spiele)
+    update_team_stats()
     print()
 
     print(f"Fertig. Calls heute total: {get_calls_today()}")
