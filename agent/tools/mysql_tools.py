@@ -679,9 +679,20 @@ def get_fixture_with_prediction(fixture_id: int) -> str:
         f.home_corners, f.away_corners,
         f.home_yellow_cards, f.away_yellow_cards,
         f.home_red_cards, f.away_red_cards,
+        -- Poisson-Prognose
         p.predicted_winner,
         p.home_win_pct, p.draw_pct, p.away_win_pct,
-        p.advice, p.home_odds, p.draw_odds, p.away_odds,
+        p.advice,
+        -- Buchmacher-Konsens (rohe Quoten)
+        p.home_odds, p.draw_odds, p.away_odds,
+        -- Implizite Wahrscheinlichkeiten (margin-bereinigt — primäres Signal)
+        p.home_win_implied, p.draw_implied, p.away_win_implied,
+        -- Sharp References
+        p.home_odds_pinnacle, p.draw_odds_pinnacle, p.away_odds_pinnacle,
+        p.home_odds_betfair,  p.draw_odds_betfair,  p.away_odds_betfair,
+        -- Markt-Qualität
+        p.margin_avg, p.margin_min, p.margin_max,
+        p.odds_bookmaker_count, p.market_confidence,
         GREATEST(f.updated_at, COALESCE(p.updated_at, f.updated_at)) AS updated_at
     FROM tournament_fixtures f
     LEFT JOIN api_predictions p ON p.fixture_id = f.fixture_id
@@ -694,8 +705,10 @@ def get_fixture_with_prediction(fixture_id: int) -> str:
 TOOL_GET_FIXTURE_WITH_PREDICTION = {
     "name": "get_fixture_with_prediction",
     "description": (
-        "Holt ein konkretes Fixture zusammen mit API-Prognose und Odds, falls vorhanden. "
-        "Beste Wahl fuer Fragen zu einem konkreten Spiel mit bekannter fixture_id."
+        "Holt ein konkretes Fixture zusammen mit vollstaendiger Odds-Analyse und API-Prognose. "
+        "Liefert: Fixture-Status, Poisson-Prognose, Konsens-Odds, implizite Wahrscheinlichkeiten, "
+        "Pinnacle- und Betfair-Quoten, Margin, Bookmaker-Anzahl und market_confidence. "
+        "Beste Wahl fuer Prognose-Fragen zu einem konkreten Spiel mit bekannter fixture_id."
     ),
     "input_schema": {
         "type": "object",

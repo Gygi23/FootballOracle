@@ -1,6 +1,31 @@
+# Secrets & Umgebung
 .env
 .venv/
+
+# Claude Code lokale Settings
+.claude/
+
+# Superpowers / Playwright
+.superpowers/
+.playwright-mcp
+
+# Python
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# macOS
 .DS_Store
-.superpowers/
+
+# Scratch-Dateien
+test_db.py
+agent/test-gemini.py
+
+# ML-Modelle (binär, oft gross)
+*.pkl
+*.h5
+*.joblib
+*.model
+
+# Daten (auto-generiert / gross)
+data/processed/
