@@ -17,7 +17,7 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-.stApp { background: #ffffff; min-height: 100vh; }
+.stApp { background: #f7f9fc; min-height: 100vh; }
 .stApp > header { display: none; }
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
@@ -48,7 +48,7 @@ footer { visibility: hidden; }
 .group-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .group-table th { color: #a0aec0; font-weight: 500; font-size: 0.72rem; text-align: center; padding: 4px 6px; border-bottom: 1px solid rgba(0,0,0,0.05); }
 .group-table th:first-child { text-align: left; }
-.group-table td { padding: 7px 6px; text-align: center; color: #2d3a50; border-bottom: 1px solid rgba(0,0,0,0.04); }
+.group-table td { padding: 7px 6px; text-align: center; color: #16213e; border-bottom: 1px solid rgba(0,0,0,0.04); }
 .group-table td:first-child { text-align: left; font-weight: 500; }
 .group-table tr:last-child td { border-bottom: none; }
 .group-table tr.qualified td { color: #1a2540; }
@@ -64,15 +64,15 @@ footer { visibility: hidden; }
 .pred-label { font-size: 0.72rem; color: #8a9ab5; min-width: 110px; font-weight: 500; }
 .pred-bar-wrap { flex: 1; height: 5px; border-radius: 3px; overflow: hidden; display: flex; background: rgba(0,0,0,0.06); }
 .pred-bar-wrap-lg { flex: 1; height: 28px; border-radius: 6px; overflow: hidden; display: flex; background: rgba(0,0,0,0.06); position: relative; }
-.pred-bar-home { background: #4a7fd4; height: 100%; }
+.pred-bar-home { background: #16213e; height: 100%; }
 .pred-bar-draw { background: #c0cadb; height: 100%; }
-.pred-bar-away { background: #e07070; height: 100%; }
+.pred-bar-away { background: #dc6f5c; height: 100%; }
 .pred-values { font-size: 0.72rem; color: #8a9ab5; min-width: 120px; text-align: right; font-family: 'DM Mono', monospace; }
 
 /* Expander: Label-Text sichtbar */
 div[data-testid="stExpander"] {
     background: rgba(255,255,255,0.7) !important;
-    border: 1px solid rgba(200,210,230,0.5) !important;
+    border: 1px solid rgba(200,210,230,0.6) !important;
     border-radius: 14px !important;
     margin-bottom: 0.75rem !important;
     box-shadow: none !important;
@@ -84,7 +84,7 @@ div[data-testid="stExpander"] summary {
 div[data-testid="stExpander"] summary p,
 div[data-testid="stExpander"] summary span,
 div[data-testid="stExpander"] > details > summary > span {
-    color: #1a2540 !important;
+    color: #16213e !important;
     font-size: 0.88rem !important;
     font-weight: 500 !important;
 }
@@ -102,7 +102,7 @@ div[data-testid="stChatMessageContent"] {
     box-shadow: none !important;
     border-radius: 12px !important;
     font-size: 0.82rem !important;
-    color: #4a7fd4 !important;
+    color: #16213e !important;
 }
 div[data-testid="stChatMessageContent"][data-role="user"] { background: transparent !important; }
 div[data-testid="stChatMessage"] { border: none !important; box-shadow: none !important; background: transparent !important; }
@@ -640,7 +640,7 @@ def render_match_card(fx, api_preds, agent_preds):
 
 
 def render_chat(key_suffix=""):
-    st.markdown('''<div style="background:#1a2540;border-radius:18px;padding:1.25rem 1.25rem 0.5rem 1.25rem;margin-bottom:0.5rem">
+    st.markdown('''<div style="background:#16213e;border-radius:18px;padding:1.25rem 1.25rem 0.5rem 1.25rem;margin-bottom:0.5rem">
 <div style="font-size:0.85rem;font-weight:600;color:#ffffff;padding-bottom:0.75rem;border-bottom:1px solid rgba(255,255,255,0.1)">⚽ WM-Orakel</div>
 </div>''', unsafe_allow_html=True)
     chat_container = st.container(height=500)
@@ -663,8 +663,8 @@ def render_chat(key_suffix=""):
 
 # ─── Navigation ───────────────────────────────────────────────────────────────
 
-st.markdown('''<div style="background:rgba(255,255,255,0.9);backdrop-filter:blur(30px);border:1px solid rgba(200,210,230,0.6);border-radius:20px;box-shadow:0 2px 20px rgba(60,80,120,0.08);padding:0.75rem 1.5rem;margin-bottom:1.5rem">
-<div style="font-size:1.3rem;font-weight:600;color:#1a2540">football<span style="color:#4a7fd4">Orakel</span></div>
+st.markdown('''<div style="background:#16213e;border-radius:16px;padding:0.75rem 1.5rem;margin-bottom:1.5rem">
+<div style="font-size:1.3rem;font-weight:600;color:#ffffff">football<span style="color:#5b9bff">Orakel</span></div>
 <div style="font-size:0.75rem;color:#8a9ab5">FIFA World Cup 2026</div>
 </div>''', unsafe_allow_html=True)
 
@@ -834,7 +834,7 @@ elif st.session_state.page == "ko":
                     score = fx.get("score", "")
                     hc    = "#1a2540" if home != "TBD" else "#c0cadb"
                     ac    = "#1a2540" if away != "TBD" else "#c0cadb"
-                    score_part = f'<div style="font-size:0.75rem;font-weight:600;color:#4a7fd4;margin:1px 0">{score}</div>' if score else ""
+                    score_part = f'<div style="font-size:0.75rem;font-weight:600;color:#16213e;margin:1px 0">{score}</div>' if score else ""
                     label_part = f'<div style="font-size:0.6rem;color:#b0bccc;font-style:italic">{label}</div>' if home == "TBD" and label else ""
                     st.markdown(
                         f'<div style="background:rgba(255,255,255,0.7);border:1px solid rgba(200,210,230,0.5);border-radius:10px;padding:7px 10px;margin-bottom:6px">'

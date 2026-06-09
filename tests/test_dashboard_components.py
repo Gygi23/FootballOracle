@@ -167,3 +167,26 @@ def test_stat_bar_uses_navy_not_old_blue():
     src = inspect.getsource(render_match_card)
     assert "#16213e" in src
     assert "#4a7fd4" not in src
+
+
+# ── Task 5: CSS + Header ──────────────────────────────────────────────────────
+
+def test_nav_header_uses_navy_background():
+    """Navigation header must use navy #16213e background, not old white."""
+    import inspect
+    from agent.dashboard import dashboard as d
+    src = inspect.getsource(d)
+    # The nav header div should contain #16213e background
+    assert 'background:#16213e' in src
+
+
+def test_css_pred_bars_use_new_palette():
+    """CSS pred-bar colors use new palette (#16213e home, #dc6f5c away)."""
+    import inspect
+    from agent.dashboard import dashboard as d
+    src = inspect.getsource(d)
+    assert '.pred-bar-home { background: #16213e' in src or \
+           'pred-bar-home { background: #16213e' in src or \
+           'pred-bar-home{background:#16213e' in src or \
+           'background: #16213e' in src
+    assert '#4a7fd4' not in src
