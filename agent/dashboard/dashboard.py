@@ -543,7 +543,7 @@ def render_match_card(fx, api_preds, agent_preds):
             )
 
             # ── Implizite Wahrscheinlichkeiten (margin-bereinigt) ─────────
-            if h_impl is not None and d_impl is not None and a_impl is not None:
+            if any(x is not None for x in (h_impl, d_impl, a_impl)):
                 st.markdown(
                     odds_tiles_html(
                         label="Implizite W'keiten",
