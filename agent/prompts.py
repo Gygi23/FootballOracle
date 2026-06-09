@@ -36,15 +36,45 @@ Wenn du gefragt wirst, wer ein Spiel gewinnt, gehe diese Reihenfolge durch:
    → Spieltag (Group Stage 1/2/3 vs. K.O.) → andere Dynamik
    → Was steht auf dem Spiel? Aus tournament_standings ableiten.
 
-5. LIVE-SPIELSTATISTIKEN (nur wenn Spiel läuft oder gerade beendet)
-   → tournament_fixtures: home_possession, home_shots_on_target, home_total_shots,
-     home_corners, home_saves, home_yellow_cards, home_red_cards
-   → Wichtigstes Signal während eines laufenden Spiels.
-   → Beispiel-Interpretation:
-     - Team verliert 0:1 aber hat 68% Ballbesitz, 9 Schüsse (4 aufs Tor) → Ausgleich wahrscheinlich
-     - Team führt 1:0 und hat 3× mehr Schüsse als Gegner → Führung dürfte halten
-     - Torhüter mit 5 Paraden → Team unter starkem Druck, weiteres Gegentor möglich
-   → Für Live-Prognosen IMMER zuerst get_tournament_fixtures aufrufen um aktuelle Stats zu holen.
+5. SPIELSTATISTIKEN — Live und vergangene WM-Spiele
+
+   WO: tournament_fixtures (aktuelle Werte) via get_tournament_fixtures(season=2026)
+
+   WANN VERWENDEN:
+   → Spiel läuft: wichtigstes Signal für «Wie geht das Spiel noch aus?»
+   → Vergangene WM-Spiele: wichtiger als historische team_stats für «Wer gewinnt das nächste Spiel?»
+     Wenn ein Team bereits WM-Spiele absolviert hat: IMMER get_tournament_fixtures(team_name=X, season=2026)
+     aufrufen. Diese Turnier-Performance ist relevanter als Kaggle-Historik.
+
+   STAT-INTERPRETATION:
+
+   Ballbesitz (possession):
+   → 60%+ = Spielkontrolle, aber allein kein Tor-Indikator
+   → «Sterile Dominanz»: hoher Besitz + wenige Schüsse aufs Tor = kein echter Druck
+   → Niedriger Besitz + viele Schüsse = gefährliches Konterteam
+
+   Schüsse aufs Tor (shots_on_target):
+   → Stärkster Einzelindikator für Torwahrscheinlichkeit
+   → >5 Schüsse aufs Tor = konstanter Druck
+   → Verhältnis shots_on_target / total_shots: <0.3 = ineffizient, >0.5 = klinisch
+
+   Paraden (saves):
+   → Viele Paraden des gegnerischen Torwarts = eigenes Team dominiert trotz Score
+   → Eigene viele Paraden = Team steht unter Druck, weiteres Gegentor möglich
+
+   Ecken (corners):
+   → Indirektes Mass für Angriffsdruck (kein Direktindikator, aber Trend)
+
+   Fouls + Karten:
+   → Viele Fouls = defensiv unter Druck, Konter-Taktik
+   → Gelbe Karten summieren sich: 2 Gelbe = Ausschluss möglich → taktisches Risiko
+   → Rote Karte = massiver Einfluss auf Spielausgang
+
+   KOMBINIERTE SIGNALE (wichtig):
+   → 0:1 hinten + 65% Besitz + 8 Schüsse aufs Tor → Ausgleich wahrscheinlich
+   → 1:0 führend + Gegner hat nur 2 Schüsse aufs Tor → Führung sehr stabil
+   → 0:0 + beide Teams je 1-2 Schüsse → Unentschieden wahrscheinlichstes Ergebnis
+   → Rote Karte in 60. Minute für führendes Team → Dynamik kippt stark
 
 6. API POISSON-PROGNOSE (wenn verfügbar — oft nicht)
    → home_win_pct / draw_pct / away_win_pct aus api_predictions
