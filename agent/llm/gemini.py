@@ -83,15 +83,18 @@ class GeminiLLM(BaseLLM):
 
     @staticmethod
     def _handle_api_error(e: ClientError) -> str:
-        if e.status_code == 429:
+        # ClientError stores the HTTP status in e.code (int) or as first element of e.args
+        status = getattr(e, "code", None) or (e.args[0] if e.args else 0)
+        is_rate_limit = status == 429 or "429" in str(e)
+        if is_rate_limit:
             print(f"[GeminiLLM] Rate-Limit erreicht: {e}")
             return (
                 "⚠️ **API-Limit erreicht** — Das Gemini-Kontingent für heute ist ausgeschöpft. "
                 "Bitte warte einige Stunden oder überprüfe dein API-Kontingent unter "
                 "[ai.dev/rate-limit](https://ai.dev/rate-limit)."
             )
-        print(f"[GeminiLLM] API-Fehler {e.status_code}: {e}")
-        return f"⚠️ **API-Fehler** — Anfrage konnte nicht verarbeitet werden (Status {e.status_code})."
+        print(f"[GeminiLLM] API-Fehler {status}: {e}")
+        return f"⚠️ **API-Fehler** — Anfrage konnte nicht verarbeitet werden (Status {status})."
 
 # helpers
 
