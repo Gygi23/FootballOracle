@@ -337,18 +337,25 @@ def odds_tiles_html(
     Wenn None, werden sie aus den Quoten berechnet (1/odd, normalisiert).
     """
     # Wahrscheinlichkeiten berechnen falls nicht übergeben
-    if h_prob is None or d_prob is None or a_prob is None:
+    if h_prob is None and d_prob is None and a_prob is None:
         rh = 1 / h_odd if h_odd else 0
         rd = 1 / d_odd if d_odd else 0
         ra = 1 / a_odd if a_odd else 0
-        total = rh + rd + ra or 1
-        h_prob = rh / total
-        d_prob = rd / total
-        a_prob = ra / total
-
-    hp = round(h_prob * 100)
-    dp = round(d_prob * 100)
-    ap = 100 - hp - dp  # sicherstellen, dass Summe = 100
+        if rh == 0 and rd == 0 and ra == 0:
+            hp, dp, ap = 33, 33, 34
+        else:
+            total = rh + rd + ra
+            h_prob = rh / total
+            d_prob = rd / total
+            a_prob = ra / total
+            hp = round(h_prob * 100)
+            dp = round(d_prob * 100)
+            ap = max(0, 100 - hp - dp)
+    else:
+        # At least one prob is provided; use them as-is (already 0-1 normalized)
+        hp = round((h_prob or 0) * 100)
+        dp = round((d_prob or 0) * 100)
+        ap = max(0, 100 - hp - dp)
 
     h_str = f"{h_odd:.2f}" if h_odd else "–"
     d_str = f"{d_odd:.2f}" if d_odd else "–"
