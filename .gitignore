@@ -28,4 +28,4 @@ agent/test-gemini.py
 *.model
 
 # Daten (auto-generiert / gross)
-data/processed/
+data/processed/logs/

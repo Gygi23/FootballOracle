@@ -1,0 +1,221 @@
+"""
+run_smart.py — Intelligenter Pipeline-Scheduler
+
+Wird alle 2 Minuten via Cron ausgeführt und entscheidet selbst was zu tun ist:
+
+  Immer (alle 4h)        → Voller Run (Odds, Standings, Predictions, KPIs)
+  2h vor Anpfiff         → Odds refresh (Markt öffnet sich)
+  30min vor Anpfiff      → Odds refresh (Aufstellungen bekannt, Quoten bewegen sich)
+  Spiel läuft            → Scores updaten (alle 2min via Cron)
+  Spiel gerade beendet   → Standings + KPIs sofort aktualisieren
+
+Setup (macOS/Linux crontab):
+    crontab -e
+    */2 * * * * cd /pfad/zu/footballAI && .venv/bin/python pipeline/run_smart.py >> logs/smart.log 2>&1
+"""
+
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+
+load_dotenv()
+
+# Projekt-Root zum Python-Path hinzufügen
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+engine = create_engine(
+    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
+)
+
+LEAGUE_ID = 1
+SEASON    = 2026
+
+# Statuses die bedeuten "Spiel läuft noch"
+LIVE_STATUSES     = {'1H', 'HT', '2H', 'ET', 'BT', 'P', 'INT', 'LIVE'}
+# Statuses die bedeuten "Spiel beendet"
+FINISHED_STATUSES = {'FT', 'AET', 'PEN'}
+
+FULL_UPDATE_INTERVAL_HOURS = 4   # Voller Run alle N Stunden
+LOG_ENDPOINT = 'smart_runner'
+
+
+# ─── DB-Abfragen (0 API Calls) ────────────────────────────────────────────────
+
+def get_live_fixtures() -> list[dict]:
+    """Spiele die gerade laufen (Status = live)."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT fixture_id, home_team, away_team, status, match_date
+            FROM tournament_fixtures
+            WHERE league_id = :league AND season = :season
+              AND status IN ('1H','HT','2H','ET','BT','P','INT','LIVE')
+        """), {"league": LEAGUE_ID, "season": SEASON}).fetchall()
+    return [dict(r._mapping) for r in rows]
+
+
+def get_upcoming_fixtures(within_minutes: int) -> list[dict]:
+    """Spiele die in den nächsten N Minuten beginnen (Status = NS)."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT fixture_id, home_team, away_team, match_date
+            FROM tournament_fixtures
+            WHERE league_id = :league AND season = :season
+              AND status = 'NS'
+              AND match_date BETWEEN NOW() AND NOW() + INTERVAL :minutes MINUTE
+        """), {"league": LEAGUE_ID, "season": SEASON, "minutes": within_minutes}).fetchall()
+    return [dict(r._mapping) for r in rows]
+
+
+def get_just_finished_fixtures() -> list[dict]:
+    """
+    Spiele die heute beendet wurden und deren KPIs noch nicht aktualisiert wurden.
+    Erkennung: status IN (FT/AET/PEN) UND updated_at nach letztem KPI-Run.
+    """
+    last_kpi_run = get_last_run_time('kpi_update')
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT fixture_id, home_team, away_team, status
+            FROM tournament_fixtures
+            WHERE league_id  = :league AND season = :season
+              AND status     IN ('FT', 'AET', 'PEN')
+              AND DATE(match_date) = CURDATE()
+              AND updated_at > :last_kpi
+        """), {
+            "league":   LEAGUE_ID,
+            "season":   SEASON,
+            "last_kpi": last_kpi_run,
+        }).fetchall()
+    return [dict(r._mapping) for r in rows]
+
+
+def get_last_run_time(endpoint: str) -> datetime:
+    """Letzten Ausführungszeitpunkt aus api_log lesen."""
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT last_called FROM api_log
+            WHERE endpoint = :ep
+            ORDER BY last_called DESC LIMIT 1
+        """), {"ep": endpoint}).fetchone()
+    if row:
+        ts = row[0]
+        # Naive datetime → UTC-aware machen
+        if isinstance(ts, datetime) and ts.tzinfo is None:
+            return ts.replace(tzinfo=timezone.utc)
+        return ts
+    # Noch nie gelaufen → sehr alter Zeitpunkt
+    return datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+
+def log_run(endpoint: str):
+    """Ausführungszeitpunkt in api_log speichern."""
+    with engine.connect() as conn:
+        conn.execute(text("""
+            INSERT INTO api_log (endpoint, calls_today, last_called)
+            VALUES (:ep, 0, NOW())
+            ON DUPLICATE KEY UPDATE last_called = NOW()
+        """), {"ep": endpoint})
+        conn.commit()
+
+
+def hours_since_last_full_run() -> float:
+    last = get_last_run_time('full_pipeline')
+    now  = datetime.now(timezone.utc)
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return (now - last).total_seconds() / 3600
+
+
+# ─── Pipeline-Aktionen ────────────────────────────────────────────────────────
+
+def run_full_pipeline():
+    """Voller Run: Standings, Fixtures, Predictions, Odds, KPIs."""
+    print("[smart] Voller Pipeline-Run...")
+    from run_daily import main as daily_main
+    daily_main()
+    log_run('full_pipeline')
+    log_run('kpi_update')
+
+
+def run_odds_refresh():
+    """Nur Odds und Predictions updaten."""
+    print("[smart] Odds-Refresh (pre-game)...")
+    import requests, time as _time
+    from run_daily import api_get, fetch_upcoming_predictions
+    from odds_extractor import fetch_upcoming_odds
+    fetch_upcoming_predictions()
+    fetch_upcoming_odds(api_get)
+
+
+def run_scores_update():
+    """Nur Scores laufender Spiele updaten (1 API Call)."""
+    from run_daily import update_today_fixtures
+    update_today_fixtures()
+
+
+def run_post_game_update():
+    """Nach Spielende: Standings + KPIs aktualisieren."""
+    print("[smart] Post-Game-Update (Standings + KPIs)...")
+    from run_daily import update_standings
+    from compute_kpis import run as update_kpis
+    update_standings()
+    update_kpis()
+    log_run('kpi_update')
+
+
+# ─── Haupt-Entscheidungslogik ─────────────────────────────────────────────────
+
+def main():
+    now = datetime.now(timezone.utc)
+    print(f"[smart] {now.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+
+    # 1. Spiele gerade live? → Scores sofort updaten
+    live = get_live_fixtures()
+    if live:
+        names = ', '.join(f"{f['home_team']} vs {f['away_team']}" for f in live)
+        print(f"[smart] Live: {names}")
+        run_scores_update()
+
+    # 2. Spiele gerade beendet? → Standings + KPIs updaten
+    just_finished = get_just_finished_fixtures()
+    if just_finished:
+        names = ', '.join(f"{f['home_team']} vs {f['away_team']} ({f['status']})" for f in just_finished)
+        print(f"[smart] Gerade beendet: {names}")
+        run_post_game_update()
+
+    # 3. Spiele in <30min? → Odds refresh (Aufstellungen bekannt)
+    kickoff_30min = get_upcoming_fixtures(within_minutes=30)
+    if kickoff_30min and not live:
+        names = ', '.join(f"{f['home_team']} vs {f['away_team']}" for f in kickoff_30min)
+        print(f"[smart] Anpfiff in <30min: {names} → Odds refresh")
+        run_odds_refresh()
+        return
+
+    # 4. Spiele in <2h? → Odds refresh (Markt öffnet sich)
+    kickoff_2h = get_upcoming_fixtures(within_minutes=120)
+    if kickoff_2h and not live:
+        # Nur alle 30min updaten (nicht jeden 2min-Lauf)
+        last_odds = get_last_run_time('odds_refresh_2h')
+        if last_odds.tzinfo is None:
+            last_odds = last_odds.replace(tzinfo=timezone.utc)
+        if (now - last_odds).total_seconds() > 1800:  # 30min
+            names = ', '.join(f"{f['home_team']} vs {f['away_team']}" for f in kickoff_2h)
+            print(f"[smart] Anpfiff in <2h: {names} → Odds refresh")
+            run_odds_refresh()
+            log_run('odds_refresh_2h')
+        return
+
+    # 5. Voller Run alle 4 Stunden (ruhige Phase)
+    if not live and hours_since_last_full_run() >= FULL_UPDATE_INTERVAL_HOURS:
+        print(f"[smart] {FULL_UPDATE_INTERVAL_HOURS}h-Intervall erreicht → voller Run")
+        run_full_pipeline()
+        return
+
+    print("[smart] Nichts zu tun.")
+
+
+if __name__ == "__main__":
+    main()
