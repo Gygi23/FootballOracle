@@ -1,7 +1,7 @@
 import os
 import time
 import requests
-from datetime import date, timedelta
+from datetime import date
 from statistics import mean
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
@@ -15,8 +15,6 @@ HEADERS = {"x-apisports-key": API_KEY}
 LEAGUE_ID = 1
 SEASON = 2026
 CALL_LIMIT = 7500
-ODDS_LOOKAHEAD_DAYS = 3
-
 engine = create_engine(
     f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
     f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
@@ -198,34 +196,34 @@ def extract_odds(bookmakers_response: list) -> dict | None:
 
 def fetch_upcoming_odds(api_get_func):
     """
-    Odds für Spiele der nächsten ODDS_LOOKAHEAD_DAYS Tage.
+    Odds für alle zukünftigen Spiele laden — kein Zeitlimit.
+    Holt Quoten sobald Bookmaker sie gestellt haben.
     Nur Spiele ohne Odds oder mit Update älter als 6h.
-    
+
     api_get_func: die api_get() Funktion aus run_daily.py
     """
-    print(f"Odds für nächste {ODDS_LOOKAHEAD_DAYS} Tage abrufen...")
-    today  = date.today()
-    cutoff = today + timedelta(days=ODDS_LOOKAHEAD_DAYS)
+    print("Odds für alle ausstehenden Spiele abrufen...")
+    today = date.today()
 
     with engine.connect() as conn:
         results = conn.execute(text("""
             SELECT tf.fixture_id, tf.home_team, tf.away_team
             FROM tournament_fixtures tf
             LEFT JOIN api_predictions ap ON tf.fixture_id = ap.fixture_id
-            WHERE tf.season   = :season
+            WHERE tf.season    = :season
               AND tf.league_id = :league
-              AND DATE(tf.match_date) BETWEEN :today AND :cutoff
+              AND DATE(tf.match_date) >= :today
               AND tf.status NOT IN ('FT', 'AET', 'PEN')
               AND (
                   ap.fixture_id IS NULL
                   OR ap.home_odds IS NULL
                   OR ap.updated_at < NOW() - INTERVAL 6 HOUR
               )
+            ORDER BY tf.match_date
         """), {
             "season": SEASON,
             "league": LEAGUE_ID,
             "today":  today.isoformat(),
-            "cutoff": cutoff.isoformat(),
         }).fetchall()
 
     if not results:
