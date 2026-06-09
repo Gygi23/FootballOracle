@@ -710,43 +710,80 @@ def render_match_card(fx, api_preds, agent_preds):
 
                 df = pd.DataFrame(history)
                 fig = go.Figure()
+
+                # Heimsieg — Blau
                 fig.add_trace(go.Scatter(
                     x=df["time"], y=df["home"],
-                    name=home,
-                    line=dict(color="#16213e", width=2),
-                    hovertemplate="%{y:.2f}<extra>" + home + "</extra>",
+                    name=f"🏠 {home}",
+                    mode="lines+markers",
+                    line=dict(color="#2563eb", width=2.5),
+                    marker=dict(size=5, color="#2563eb", symbol="circle"),
+                    hovertemplate="<b>%{y:.2f}</b><extra>" + home + "</extra>",
                 ))
+                # Unentschieden — Grau gestrichelt
                 fig.add_trace(go.Scatter(
                     x=df["time"], y=df["draw"],
-                    name="Unentschieden",
-                    line=dict(color="#94a3b8", width=1.5, dash="dot"),
-                    hovertemplate="%{y:.2f}<extra>X</extra>",
+                    name="⚖️ Unentschieden",
+                    mode="lines+markers",
+                    line=dict(color="#94a3b8", width=1.5, dash="dash"),
+                    marker=dict(size=4, color="#94a3b8", symbol="circle"),
+                    hovertemplate="<b>%{y:.2f}</b><extra>Unentschieden</extra>",
                 ))
+                # Auswärtssieg — Orange-Rot
                 fig.add_trace(go.Scatter(
                     x=df["time"], y=df["away"],
-                    name=away,
-                    line=dict(color="#dc6f5c", width=2),
-                    hovertemplate="%{y:.2f}<extra>" + away + "</extra>",
+                    name=f"✈️ {away}",
+                    mode="lines+markers",
+                    line=dict(color="#dc6f5c", width=2.5),
+                    marker=dict(size=5, color="#dc6f5c", symbol="circle"),
+                    hovertemplate="<b>%{y:.2f}</b><extra>" + away + "</extra>",
                 ))
+
                 fig.update_layout(
-                    margin=dict(l=0, r=0, t=8, b=0),
-                    height=160,
-                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(l=0, r=48, t=36, b=32),
+                    height=220,
+                    plot_bgcolor="rgba(248,250,252,0.6)",
                     paper_bgcolor="rgba(0,0,0,0)",
-                    font=dict(family="DM Sans", size=10, color="#8a9ab5"),
+                    font=dict(family="DM Sans", size=10, color="#64748b"),
                     legend=dict(
-                        orientation="h", yanchor="bottom", y=1.0,
-                        xanchor="right", x=1,
-                        font=dict(size=9),
+                        orientation="h",
+                        yanchor="bottom", y=1.02,
+                        xanchor="left", x=0,
+                        font=dict(size=10, color="#475569"),
                         bgcolor="rgba(0,0,0,0)",
+                        bordercolor="rgba(0,0,0,0)",
+                        traceorder="normal",
                     ),
-                    xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=9)),
+                    xaxis=dict(
+                        showgrid=False,
+                        zeroline=False,
+                        tickfont=dict(size=10, color="#64748b"),
+                        tickformat="%d.%m.",
+                        tickangle=0,
+                        linecolor="rgba(203,213,225,0.6)",
+                        linewidth=1,
+                        showline=True,
+                    ),
                     yaxis=dict(
-                        showgrid=True, gridcolor="rgba(0,0,0,0.05)",
-                        zeroline=False, tickfont=dict(size=9),
+                        showgrid=True,
+                        gridcolor="rgba(203,213,225,0.4)",
+                        zeroline=False,
+                        tickfont=dict(size=10, color="#64748b"),
+                        tickformat=".2f",
+                        side="right",
+                        title=dict(
+                            text="Quote",
+                            font=dict(size=10, color="#94a3b8"),
+                        ),
                     ),
                     hovermode="x unified",
+                    hoverlabel=dict(
+                        bgcolor="white",
+                        bordercolor="#e2e8f0",
+                        font=dict(family="DM Sans", size=11, color="#16213e"),
+                    ),
                 )
+
                 st.markdown(
                     '<div style="font-size:0.68rem;color:#8a9ab5;font-weight:600;'
                     'text-transform:uppercase;letter-spacing:0.6px;'
@@ -758,6 +795,12 @@ def render_match_card(fx, api_preds, agent_preds):
                     fig,
                     use_container_width=True,
                     config={"displayModeBar": False},
+                )
+                st.markdown(
+                    '<div style="font-size:0.7rem;color:#94a3b8;margin-top:-8px;margin-bottom:4px">'
+                    '↓ Tiefere Quote = mehr Geld auf dieses Team = Favorit des Marktes'
+                    '</div>',
+                    unsafe_allow_html=True,
                 )
 
         # ── Match-Statistiken ────────────────────────────────────────────────
