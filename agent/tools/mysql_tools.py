@@ -627,7 +627,7 @@ TOOL_GET_AGENT_PREDICTIONS = {
 
 
 def get_api_predictions(fixture_id: int | None = None, limit: int = 10) -> str:
-    limit = min(int(limit), 50)
+    limit = min(int(limit), 200)  # WM 2026 hat max. 104 Spiele
 
     if fixture_id is not None:
         sql = """
