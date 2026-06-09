@@ -51,7 +51,7 @@ footer { visibility: hidden; }
 .group-table td { padding: 7px 6px; text-align: center; color: #16213e; border-bottom: 1px solid rgba(0,0,0,0.04); }
 .group-table td:first-child { text-align: left; font-weight: 500; }
 .group-table tr:last-child td { border-bottom: none; }
-.group-table tr.qualified td { color: #1a2540; }
+.group-table tr.qualified td { color: #16213e; }
 .group-table tr.out td { color: #a0aec0; }
 .pts { font-weight: 600 !important; color: #2d3a50 !important; }
 
@@ -601,13 +601,13 @@ def render_match_card(fx, api_preds, agent_preds):
                     f'<div style="display:grid;grid-template-columns:1fr auto 1fr;'
                     f'align-items:center;gap:8px;margin-bottom:6px">'
                     f'<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">'
-                    f'<span style="font-size:0.75rem;font-weight:600;color:#1a2540">{h}</span>'
+                    f'<span style="font-size:0.75rem;font-weight:600;color:#16213e">{h}</span>'
                     f'<div style="height:10px;width:{h_pct}%;background:#16213e;border-radius:3px;min-width:2px"></div>'
                     f'</div>'
                     f'<span style="font-size:0.68rem;color:#2d3a50;white-space:nowrap;text-align:center">{label}</span>'
                     f'<div style="display:flex;align-items:center;gap:6px">'
                     f'<div style="height:10px;width:{a_pct}%;background:#dc6f5c;border-radius:3px;min-width:2px"></div>'
-                    f'<span style="font-size:0.75rem;font-weight:600;color:#1a2540">{a}</span>'
+                    f'<span style="font-size:0.75rem;font-weight:600;color:#16213e">{a}</span>'
                     f'</div></div>'
                 )
 
@@ -832,8 +832,8 @@ elif st.session_state.page == "ko":
                     dt    = fx.get("date", "")
                     label = fx.get("label", "")
                     score = fx.get("score", "")
-                    hc    = "#1a2540" if home != "TBD" else "#c0cadb"
-                    ac    = "#1a2540" if away != "TBD" else "#c0cadb"
+                    hc    = "#16213e" if home != "TBD" else "#c0cadb"
+                    ac    = "#16213e" if away != "TBD" else "#c0cadb"
                     score_part = f'<div style="font-size:0.75rem;font-weight:600;color:#16213e;margin:1px 0">{score}</div>' if score else ""
                     label_part = f'<div style="font-size:0.6rem;color:#b0bccc;font-style:italic">{label}</div>' if home == "TBD" and label else ""
                     st.markdown(
