@@ -701,6 +701,65 @@ def render_match_card(fx, api_preds, agent_preds):
             unsafe_allow_html=True,
         )
 
+        # ── Quotenverlauf ────────────────────────────────────────────────────
+        if fid:
+            history = load_odds_history(fid)
+            if len(history) >= 2:
+                import plotly.graph_objects as go
+                import pandas as pd
+
+                df = pd.DataFrame(history)
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=df["time"], y=df["home"],
+                    name=home,
+                    line=dict(color="#16213e", width=2),
+                    hovertemplate="%{y:.2f}<extra>" + home + "</extra>",
+                ))
+                fig.add_trace(go.Scatter(
+                    x=df["time"], y=df["draw"],
+                    name="Unentschieden",
+                    line=dict(color="#94a3b8", width=1.5, dash="dot"),
+                    hovertemplate="%{y:.2f}<extra>X</extra>",
+                ))
+                fig.add_trace(go.Scatter(
+                    x=df["time"], y=df["away"],
+                    name=away,
+                    line=dict(color="#dc6f5c", width=2),
+                    hovertemplate="%{y:.2f}<extra>" + away + "</extra>",
+                ))
+                fig.update_layout(
+                    margin=dict(l=0, r=0, t=8, b=0),
+                    height=160,
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="DM Sans", size=10, color="#8a9ab5"),
+                    legend=dict(
+                        orientation="h", yanchor="bottom", y=1.0,
+                        xanchor="right", x=1,
+                        font=dict(size=9),
+                        bgcolor="rgba(0,0,0,0)",
+                    ),
+                    xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=9)),
+                    yaxis=dict(
+                        showgrid=True, gridcolor="rgba(0,0,0,0.05)",
+                        zeroline=False, tickfont=dict(size=9),
+                    ),
+                    hovermode="x unified",
+                )
+                st.markdown(
+                    '<div style="font-size:0.68rem;color:#8a9ab5;font-weight:600;'
+                    'text-transform:uppercase;letter-spacing:0.6px;'
+                    'margin:8px 0 0 0;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06)">'
+                    'Quotenverlauf</div>',
+                    unsafe_allow_html=True,
+                )
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    config={"displayModeBar": False},
+                )
+
         # ── Match-Statistiken ────────────────────────────────────────────────
         if status in ["1H", "HT", "2H", "FT", "AET", "PEN"]:
 
@@ -761,6 +820,27 @@ def render_match_card(fx, api_preds, agent_preds):
                     f'</div>{bars}</div>',
                     unsafe_allow_html=True
                 )
+
+
+@st.cache_data(ttl=120)
+def load_odds_history(fixture_id: int) -> list:
+    """Quoten-Verlaufshistorie für ein Spiel."""
+    from agent.tools.mysql_tools import get_engine
+    from sqlalchemy import text as sa_text
+    try:
+        with get_engine().connect() as conn:
+            rows = conn.execute(sa_text("""
+                SELECT recorded_at, home_odds, draw_odds, away_odds
+                FROM odds_history
+                WHERE fixture_id = :fid
+                ORDER BY recorded_at ASC
+            """), {"fid": fixture_id}).fetchall()
+        return [
+            {"time": row[0], "home": float(row[1]), "draw": float(row[2]), "away": float(row[3])}
+            for row in rows
+        ]
+    except Exception:
+        return []
 
 
 @st.cache_data(ttl=300)

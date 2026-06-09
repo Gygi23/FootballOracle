@@ -52,12 +52,34 @@ MIGRATIONS = [
     ("team_stats",          "elo_rating_pre_wm",      "DECIMAL(8,2) DEFAULT NULL"),
 ]
 
+# Neue Tabellen (idempotent via CREATE TABLE IF NOT EXISTS)
+TABLE_CREATES = [
+    # ── 2026-06-09: Quoten-Verlaufshistorie ──────────────────────────────────
+    """CREATE TABLE IF NOT EXISTS odds_history (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        fixture_id  INT NOT NULL,
+        recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        home_odds   DECIMAL(6,3),
+        draw_odds   DECIMAL(6,3),
+        away_odds   DECIMAL(6,3),
+        INDEX idx_oh_fixture (fixture_id),
+        INDEX idx_oh_time    (recorded_at)
+    )""",
+]
+
 
 def run():
-    print(f"footballAI – migrate_db.py ({len(MIGRATIONS)} Migrationen)\n")
+    print(f"footballAI – migrate_db.py ({len(MIGRATIONS)} Spalten · {len(TABLE_CREATES)} Tabellen)\n")
     with engine.connect() as conn:
         for table, column, definition in MIGRATIONS:
             add_column_if_missing(conn, table, column, definition)
+        print()
+        for stmt in TABLE_CREATES:
+            # Tabellenname aus CREATE TABLE IF NOT EXISTS <name> extrahieren
+            table_name = stmt.strip().split()[5]
+            conn.execute(text(stmt))
+            conn.commit()
+            print(f"  ok    {table_name} (CREATE TABLE IF NOT EXISTS)")
     print("\nFertig.")
 
 

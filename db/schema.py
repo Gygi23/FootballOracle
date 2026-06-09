@@ -176,6 +176,17 @@ CREATE TABLE IF NOT EXISTS api_predictions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS odds_history (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    fixture_id  INT NOT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    home_odds   DECIMAL(6,3),
+    draw_odds   DECIMAL(6,3),
+    away_odds   DECIMAL(6,3),
+    INDEX idx_oh_fixture (fixture_id),
+    INDEX idx_oh_time    (recorded_at)
+);
+
 CREATE TABLE IF NOT EXISTS fixture_snapshots (
     id INT AUTO_INCREMENT PRIMARY KEY,
     fixture_id INT,

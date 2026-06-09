@@ -295,6 +295,17 @@ def fetch_upcoming_odds(api_get_func):
                     market_confidence     = :market_confidence,
                     updated_at            = CURRENT_TIMESTAMP
             """), {"fixture_id": fixture_id, **odds})
+
+            # Quoten-Snapshot in Verlaufshistorie speichern
+            conn.execute(text("""
+                INSERT INTO odds_history (fixture_id, home_odds, draw_odds, away_odds)
+                VALUES (:fixture_id, :home_odds, :draw_odds, :away_odds)
+            """), {
+                "fixture_id": fixture_id,
+                "home_odds":  odds["home_odds"],
+                "draw_odds":  odds["draw_odds"],
+                "away_odds":  odds["away_odds"],
+            })
             conn.commit()
 
         saved += 1

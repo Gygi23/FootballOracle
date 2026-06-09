@@ -145,43 +145,72 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
-    """Starke Quoten-Bewegungen melden (> 10 Rappen seit Marktöffnung)."""
+    """
+    Starke Quoten-Bewegungen melden — vergleicht die letzten ZWEI Snapshots
+    in odds_history (nicht Eröffnung vs. heute).
+
+    Vorteil: Meldet nur echte neue Bewegungen (z.B. Verletzungsmeldung 2h vor Anpfiff),
+    nicht dauerhaft denselben kumulierten Drift seit Marktöffnung.
+    Schwelle: > 0.10 Differenz zwischen letztem und vorletztem Snapshot.
+    """
     if not OWNER_CHAT_ID:
         return
 
     from agent.tools.mysql_tools import get_engine
     with get_engine().connect() as conn:
         rows = conn.execute(text("""
-            SELECT tf.home_team, tf.away_team,
-                   ap.home_odds,      ap.home_odds_open,
-                   ap.away_odds,      ap.away_odds_open
-            FROM api_predictions ap
-            JOIN tournament_fixtures tf ON ap.fixture_id = tf.fixture_id
-            WHERE tf.season = 2026 AND tf.status = 'NS'
-              AND ap.home_odds_open IS NOT NULL
+            WITH ranked AS (
+                SELECT
+                    fixture_id,
+                    home_odds, draw_odds, away_odds,
+                    recorded_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY fixture_id ORDER BY recorded_at DESC
+                    ) AS rn
+                FROM odds_history
+            )
+            SELECT
+                tf.home_team, tf.away_team, tf.match_date, tf.stage,
+                r1.home_odds  AS h_now,  r1.draw_odds  AS d_now,  r1.away_odds  AS a_now,
+                r2.home_odds  AS h_prev, r2.draw_odds  AS d_prev, r2.away_odds  AS a_prev,
+                r1.recorded_at AS snapshot_at
+            FROM tournament_fixtures tf
+            JOIN ranked r1 ON r1.fixture_id = tf.fixture_id AND r1.rn = 1
+            JOIN ranked r2 ON r2.fixture_id = tf.fixture_id AND r2.rn = 2
+            WHERE tf.season = 2026
+              AND tf.status = 'NS'
+              AND tf.match_date > NOW()
               AND (
-                ABS(ap.home_odds  - ap.home_odds_open)  > 0.10
-                OR ABS(ap.away_odds - ap.away_odds_open) > 0.10
+                  ABS(r1.home_odds - r2.home_odds)  > 0.10
+                  OR ABS(r1.away_odds - r2.away_odds) > 0.10
               )
+            ORDER BY tf.match_date
         """)).fetchall()
 
     for r in rows:
-        lines = [f"📊 *Quotenbewegung: {r.home_team} vs {r.away_team}*\n"]
-        h_delta = (r.home_odds or 0) - (r.home_odds_open or 0)
-        a_delta = (r.away_odds or 0) - (r.away_odds_open or 0)
+        h_delta = float(r.h_now  or 0) - float(r.h_prev or 0)
+        d_delta = float(r.d_now  or 0) - float(r.d_prev or 0)
+        a_delta = float(r.a_now  or 0) - float(r.a_prev or 0)
 
-        if abs(h_delta) > 0.10:
-            arrow = "▼" if h_delta < 0 else "▲"
-            lines.append(
-                f"• {r.home_team}: {r.home_odds_open:.2f} → {r.home_odds:.2f} "
-                f"{arrow}{abs(h_delta):.2f}"
-            )
-        if abs(a_delta) > 0.10:
-            arrow = "▼" if a_delta < 0 else "▲"
-            lines.append(
-                f"• {r.away_team}: {r.away_odds_open:.2f} → {r.away_odds:.2f} "
-                f"{arrow}{abs(a_delta):.2f}"
-            )
+        time_str = r.match_date.strftime("%d.%m. %H:%M") if r.match_date else "?"
+
+        lines = [f"📊 *Quotenbewegung* — {r.home_team} vs {r.away_team}",
+                 f"{time_str} Uhr  ·  {r.stage}\n"]
+
+        for team, now, prev, delta in [
+            (r.home_team,    r.h_now, r.h_prev, h_delta),
+            ("Unentschieden", r.d_now, r.d_prev, d_delta),
+            (r.away_team,    r.a_now, r.a_prev, a_delta),
+        ]:
+            if abs(delta) > 0.05:
+                arrow = "▼" if delta < 0 else "▲"
+                note  = " ← Geld fliesst rein" if delta < 0 else " ← driftet weg"
+                lines.append(
+                    f"• {team}: {float(prev):.2f} → {float(now):.2f}  "
+                    f"{arrow}{abs(delta):.2f}{note}"
+                )
+
+        lines.append("\nMögliche Ursache: Verletzung, Aufstellung oder Sharp-Money.")
 
         await ctx.bot.send_message(
             OWNER_CHAT_ID, "\n".join(lines), parse_mode="Markdown"

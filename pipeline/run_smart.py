@@ -23,8 +23,12 @@ from sqlalchemy import create_engine, text
 
 load_dotenv()
 
-# Projekt-Root zum Python-Path hinzufügen
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Sowohl Projekt-Root als auch pipeline/-Verzeichnis zum Path hinzufügen
+# (nötig damit 'from run_daily import ...' funktioniert, egal von wo das Script gestartet wird)
+_this_dir    = os.path.dirname(os.path.abspath(__file__))          # .../pipeline/
+_project_root = os.path.dirname(_this_dir)                          # .../footballAI/
+sys.path.insert(0, _this_dir)
+sys.path.insert(0, _project_root)
 
 engine = create_engine(
     f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
