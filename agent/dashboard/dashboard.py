@@ -43,16 +43,19 @@ footer { visibility: hidden; }
     box-shadow: 0 2px 16px rgba(60,80,120,0.06);
     padding: 1rem 1.25rem;
     margin-bottom: 0.75rem;
+    overflow: hidden;
 }
 .section-title {
     font-size: 0.8rem; font-weight: 600; color: #8a9ab5;
     text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.75rem;
 }
-.group-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.group-table th { color: #a0aec0; font-weight: 500; font-size: 0.72rem; text-align: center; padding: 4px 6px; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.group-table th:first-child { text-align: left; }
-.group-table td { padding: 7px 6px; text-align: center; color: #16213e; border-bottom: 1px solid rgba(0,0,0,0.04); }
-.group-table td:first-child { text-align: left; font-weight: 500; }
+.group-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed; }
+.group-table th { color: #a0aec0; font-weight: 500; font-size: 0.68rem; text-align: center; padding: 3px 3px; border-bottom: 1px solid rgba(0,0,0,0.05); width: 22px; }
+.group-table th:first-child { text-align: left; width: auto; }
+.group-table th:last-child { width: 76px; }
+.group-table td { padding: 5px 3px; text-align: center; color: #16213e; border-bottom: 1px solid rgba(0,0,0,0.04); overflow: hidden; font-size: 0.78rem; }
+.group-table td:first-child { text-align: left; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; max-width: 0; font-size: 0.8rem; }
+.group-table td:last-child { white-space: nowrap; text-overflow: clip; }
 .group-table tr:last-child td { border-bottom: none; }
 .group-table tr.qualified td { color: #16213e; }
 .group-table tr.out td { color: #a0aec0; }
@@ -417,10 +420,11 @@ def odds_tiles_html(
     )
 
 
-def wettmarkt_html(home: str, away: str, api_p: dict) -> str:
+def wettmarkt_html(home: str, away: str, api_p: dict, is_finished: bool = False) -> str:
     """
-    Kompakter Wettmarkt-Block: Wahrscheinlichkeitsbalken + Odds-Tabelle.
-    Immer angezeigt — zeigt Placeholder wenn keine Odds verfügbar.
+    Wettmarkt-Block: Wahrscheinlichkeitsbalken + Quoten-Tabelle mit Legende.
+    Immer sichtbar — passender Placeholder wenn keine Odds verfügbar.
+    Confidence Badge gehört hierher (nicht zum Spielstatus).
     """
     h_impl = api_p.get("home_win_implied")
     d_impl = api_p.get("draw_implied")
@@ -438,116 +442,139 @@ def wettmarkt_html(home: str, away: str, api_p: dict) -> str:
     margin = api_p.get("margin_avg")
     conf   = api_p.get("market_confidence")
 
-    # Header
+    has_odds = bool(h_odd or h_impl)
+
+    # ── Section header ────────────────────────────────────────────────────────
     meta_parts = []
     if bm_cnt:
-        meta_parts.append(f"{bm_cnt} BMs")
+        meta_parts.append(f"{int(bm_cnt)} Buchmacher")
     if margin is not None:
         meta_parts.append(f"Margin {round(margin * 100, 1)}%")
     meta_str = " · ".join(meta_parts)
 
-    conf_map = {
-        "HIGH":   ("Markt sicher",  "#d4edda", "#1a6b2e"),
-        "MEDIUM": ("Markt neutral", "#fff3cd", "#856404"),
-        "LOW":    ("Offenes Spiel", "#f8d7da", "#842029"),
-    }
-    conf_label, conf_bg, conf_color = conf_map.get(conf or "", ("", "#f0f0f0", "#888"))
-    conf_badge_html = (
-        f'<span style="padding:1px 6px;border-radius:4px;background:{conf_bg};'
-        f'color:{conf_color};font-size:0.63rem;font-weight:600">{conf_label}</span>'
-        if conf_label else ""
-    )
-
-    header = (
-        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    section_header = (
+        f'<div style="display:flex;justify-content:space-between;align-items:center;'
+        f'margin-bottom:10px">'
         f'<span style="font-size:0.7rem;font-weight:600;color:#8a9ab5;'
         f'text-transform:uppercase;letter-spacing:0.6px">Wettmarkt</span>'
-        f'<div style="display:flex;gap:6px;align-items:center">'
         f'<span style="font-size:0.63rem;color:#a0aec0">{meta_str}</span>'
-        f'{conf_badge_html}'
-        f'</div></div>'
+        f'</div>'
     )
 
-    # No odds → placeholder
-    if not h_odd and not h_impl:
+    # ── No odds → Placeholder ─────────────────────────────────────────────────
+    if not has_odds:
+        msg = (
+            "Keine Quoten für dieses Spiel gespeichert"
+            if is_finished
+            else "Quoten erscheinen kurz vor Spielbeginn (~24h vorher)"
+        )
         return (
             f'<div style="padding:10px 0;border-top:1px solid rgba(0,0,0,0.06)">'
-            f'{header}'
-            f'<p style="font-size:0.72rem;color:#c0cadb;margin:4px 0">'
-            f'Odds werden verfügbar sobald Bookmaker öffnen</p>'
+            f'{section_header}'
+            f'<p style="font-size:0.72rem;color:#b0bac8;margin:4px 0 0 0;font-style:italic">{msg}</p>'
             f'</div>'
         )
 
-    # Probability bar
+    # ── Probability bar ───────────────────────────────────────────────────────
     hp = round((h_impl or 0) * 100)
     dp = round((d_impl or 0) * 100)
     ap = max(0, 100 - hp - dp)
 
-    prob_bar = (
-        f'<div style="margin-bottom:10px">'
-        f'<div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-bottom:4px">'
-        f'<div style="width:{hp}%;background:#16213e"></div>'
-        f'<div style="width:{dp}%;background:#cbd5e1"></div>'
-        f'<div style="width:{ap}%;background:#dc6f5c"></div>'
+    h_short = (home[:15] + "…") if len(home) > 15 else home
+    a_short = (away[:15] + "…") if len(away) > 15 else away
+
+    prob_section = (
+        # Team labels above bar
+        f'<div style="display:flex;justify-content:space-between;align-items:baseline;'
+        f'font-size:0.7rem;font-weight:600;margin-bottom:5px;gap:6px">'
+        f'<span style="color:#16213e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+        f'{h_short}</span>'
+        f'<span style="color:#94a3b8;font-weight:400;font-size:0.65rem;white-space:nowrap;flex-shrink:0">'
+        f'Unentschieden</span>'
+        f'<span style="color:#dc6f5c;flex:1;text-align:right;overflow:hidden;'
+        f'text-overflow:ellipsis;white-space:nowrap">{a_short}</span>'
         f'</div>'
-        f'<div style="display:flex;justify-content:space-between;font-size:0.7rem">'
-        f'<span style="color:#16213e;font-weight:600">{home} {hp}%</span>'
-        f'<span style="color:#718096">{dp}%&nbsp;X</span>'
-        f'<span style="color:#dc6f5c;font-weight:600">{ap}%&nbsp;{away}</span>'
-        f'</div></div>'
+        # Bar — flex-grow proportional to probability
+        f'<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:5px">'
+        f'<div style="flex:{hp};background:#16213e"></div>'
+        f'<div style="flex:{dp};background:#94a3b8;margin:0 1px"></div>'
+        f'<div style="flex:{ap};background:#dc6f5c"></div>'
+        f'</div>'
+        # Percentage labels below bar
+        f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:12px">'
+        f'<span style="color:#16213e;font-weight:700">{hp}%</span>'
+        f'<span style="color:#94a3b8">{dp}%</span>'
+        f'<span style="color:#dc6f5c;font-weight:700">{ap}%</span>'
+        f'</div>'
     )
 
-    # Odds table
+    # ── Odds table ────────────────────────────────────────────────────────────
     def _fmt(v): return f"{v:.2f}" if v else "–"
 
-    def _row(source, ho, do_, ao, pct_home=None, pct_draw=None, pct_away=None):
-        ho_s, do_s, ao_s = _fmt(ho), _fmt(do_), _fmt(ao)
-        pct_row = ""
-        if pct_home is not None:
-            ph = round(pct_home * 100)
-            pd_ = round(pct_draw * 100)
-            pa = max(0, 100 - ph - pd_)
-            pct_row = (
-                f'<tr>'
-                f'<td style="font-size:0.68rem;color:#8a9ab5;padding:2px 4px 0">{source}</td>'
-                f'<td style="font-size:0.72rem;font-weight:600;color:#16213e;text-align:center;padding:2px 4px 0">{ph}%</td>'
-                f'<td style="font-size:0.68rem;color:#718096;text-align:center;padding:2px 4px 0">{pd_}%</td>'
-                f'<td style="font-size:0.72rem;font-weight:600;color:#dc6f5c;text-align:right;padding:2px 4px 0">{pa}%</td>'
-                f'</tr>'
-            )
-        odds_source = "" if pct_home is not None else source
-        return pct_row + (
+    def _row(label, ho, do_, ao):
+        return (
             f'<tr>'
-            f'<td style="font-size:0.63rem;color:#a0aec0;padding:0 4px 5px">{odds_source}</td>'
-            f'<td style="font-size:0.65rem;color:#9aa6ba;text-align:center;padding:0 4px 5px;font-family:monospace">{ho_s}</td>'
-            f'<td style="font-size:0.65rem;color:#9aa6ba;text-align:center;padding:0 4px 5px;font-family:monospace">{do_s}</td>'
-            f'<td style="font-size:0.65rem;color:#9aa6ba;text-align:right;padding:0 4px 5px;font-family:monospace">{ao_s}</td>'
+            f'<td style="font-size:0.68rem;color:#6b7280;padding:5px 0;white-space:nowrap">{label}</td>'
+            f'<td style="font-size:0.74rem;font-weight:700;color:#16213e;text-align:center;'
+            f'padding:5px 6px;font-family:\'DM Mono\',monospace">{_fmt(ho)}</td>'
+            f'<td style="font-size:0.74rem;font-weight:500;color:#64748b;text-align:center;'
+            f'padding:5px 6px;font-family:\'DM Mono\',monospace">{_fmt(do_)}</td>'
+            f'<td style="font-size:0.74rem;font-weight:700;color:#dc6f5c;text-align:right;'
+            f'padding:5px 6px;font-family:\'DM Mono\',monospace">{_fmt(ao)}</td>'
             f'</tr>'
         )
 
     rows = ""
     if h_odd:
-        rows += _row("Konsens", h_odd, d_odd, a_odd, h_impl, d_impl, a_impl)
+        rows += _row("Konsens", h_odd, d_odd, a_odd)
     if h_pin:
         rows += _row("Pinnacle", h_pin, d_pin, a_pin)
     if h_bf:
         rows += _row("Betfair", h_bf, d_bf, a_bf)
 
-    table = (
-        f'<table style="width:100%;border-collapse:collapse">'
-        f'<tr>'
-        f'<th style="font-size:0.63rem;color:#a0aec0;font-weight:400;text-align:left;padding:0 4px 4px"></th>'
-        f'<th style="font-size:0.63rem;color:#16213e;font-weight:600;text-align:center;padding:0 4px 4px">Heim</th>'
-        f'<th style="font-size:0.63rem;color:#718096;font-weight:600;text-align:center;padding:0 4px 4px">X</th>'
-        f'<th style="font-size:0.63rem;color:#dc6f5c;font-weight:600;text-align:right;padding:0 4px 4px">Auswärts</th>'
-        f'</tr>'
-        f'{rows}'
+    odds_table = (
+        f'<table style="width:100%;border-collapse:collapse;margin-bottom:8px">'
+        f'<thead><tr style="border-bottom:1px solid rgba(0,0,0,0.07)">'
+        f'<th style="font-size:0.62rem;color:#a0aec0;font-weight:400;text-align:left;'
+        f'padding:0 0 5px 0"></th>'
+        f'<th style="font-size:0.62rem;color:#16213e;font-weight:700;text-align:center;'
+        f'padding:0 6px 5px">Heimsieg</th>'
+        f'<th style="font-size:0.62rem;color:#64748b;font-weight:600;text-align:center;'
+        f'padding:0 6px 5px">X</th>'
+        f'<th style="font-size:0.62rem;color:#dc6f5c;font-weight:700;text-align:right;'
+        f'padding:0 6px 5px">Auswärtssieg</th>'
+        f'</tr></thead>'
+        f'<tbody>{rows}</tbody>'
         f'</table>'
+    )
+
+    # ── Legend + Confidence badge ─────────────────────────────────────────────
+    conf_map = {
+        "HIGH":   ("Klarer Favorit",        "#d4edda", "#1a6b2e"),
+        "MEDIUM": ("Ausgeglichener Markt",  "#fff3cd", "#856404"),
+        "LOW":    ("Offenes Spiel",         "#f8d7da", "#842029"),
+    }
+    conf_label, conf_bg, conf_color = conf_map.get(conf or "", ("", "#f0f0f0", "#888"))
+    conf_badge_html = (
+        f'<span style="padding:2px 8px;border-radius:4px;background:{conf_bg};'
+        f'color:{conf_color};font-size:0.62rem;font-weight:600;white-space:nowrap">'
+        f'{conf_label}</span>'
+    ) if conf_label else ""
+
+    footer = (
+        f'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        f'<span style="font-size:0.6rem;color:#c0cadb;line-height:1.4">'
+        f'Konsens&nbsp;=&nbsp;Ø&nbsp;Buchmacher'
+        f'&nbsp;·&nbsp;Pinnacle&nbsp;=&nbsp;Schärfster&nbsp;Markt'
+        f'&nbsp;·&nbsp;Betfair&nbsp;=&nbsp;Wettbörse'
+        f'</span>'
+        f'{conf_badge_html}'
+        f'</div>'
     )
 
     return (
         f'<div style="padding:10px 0;border-top:1px solid rgba(0,0,0,0.06)">'
-        f'{header}{prob_bar}{table}'
+        f'{section_header}{prob_section}{odds_table}{footer}'
         f'</div>'
     )
 
@@ -591,14 +618,35 @@ def render_match_card(fx, api_preds, agent_preds):
     stage  = fx.get("stage", "")
     status = fx.get("status", "NS")
 
-    status_color = {
-        "NS": "#a0aec0", "1H": "#22c55e", "HT": "#f59e0b",
-        "2H": "#22c55e", "FT": "#16213e", "AET": "#16213e", "PEN": "#16213e"
-    }.get(status, "#a0aec0")
+    # Status: Hintergrundfarbe + Textfarbe als Pill
+    status_style = {
+        "NS":  ("#f1f5f9", "#64748b"),
+        "1H":  ("#dcfce7", "#15803d"),
+        "HT":  ("#fef9c3", "#a16207"),
+        "2H":  ("#dcfce7", "#15803d"),
+        "ET":  ("#fef9c3", "#a16207"),
+        "BT":  ("#fef9c3", "#a16207"),
+        "P":   ("#fee2e2", "#dc2626"),
+        "INT": ("#fef9c3", "#a16207"),
+        "FT":  ("#f1f5f9", "#374151"),
+        "AET": ("#f1f5f9", "#374151"),
+        "PEN": ("#f1f5f9", "#374151"),
+    }
+    s_bg, s_fg = status_style.get(status, ("#f1f5f9", "#64748b"))
+    # Für Expander-Label noch die alte Farblogik brauchen wir nicht mehr
+    status_color = s_fg  # kept for compat
     status_label = {
-        "NS": "Ausstehend", "1H": "🔴 1. HZ", "HT": "🟡 Pause",
-        "2H": "🔴 2. HZ", "FT": "Abgeschlossen",
-        "AET": "Abgeschlossen (VL)", "PEN": "Abgeschlossen (E)"
+        "NS":  "Ausstehend",
+        "1H":  "🔴 1. Halbzeit",
+        "HT":  "🟡 Pause",
+        "2H":  "🔴 2. Halbzeit",
+        "ET":  "🟡 Verlängerung",
+        "BT":  "🟡 Pause (VL)",
+        "P":   "🔴 Elfmeter",
+        "INT": "🟡 Unterbrochen",
+        "FT":  "Abgeschlossen",
+        "AET": "Abgeschlossen (VL)",
+        "PEN": "Abgeschlossen (E)",
     }.get(status, status)
 
     api_p   = api_preds.get(fid, {})
@@ -617,19 +665,20 @@ def render_match_card(fx, api_preds, agent_preds):
 
     with st.expander(expander_label, expanded=False):
 
-        # Status + Confidence Badge
-        conf_badge = confidence_badge(api_p.get("market_confidence")) if api_p else ""
+        # Status-Pill — allein, kein Confidence Badge hier
         st.markdown(
-            f'<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">'
-            f'<span style="font-size:0.75rem;color:{status_color};font-weight:600">{status_label}</span>'
-            f'{conf_badge}'
+            f'<div style="margin-bottom:12px">'
+            f'<span style="display:inline-block;padding:3px 10px;border-radius:6px;'
+            f'background:{s_bg};color:{s_fg};font-size:0.72rem;font-weight:600">'
+            f'{status_label}</span>'
             f'</div>',
             unsafe_allow_html=True
         )
 
-        # ── Wettmarkt ────────────────────────────────────────────────────────
+        # ── Wettmarkt (Confidence Badge ist jetzt darin) ──────────────────────
+        is_finished = status in {"FT", "AET", "PEN"}
         st.markdown(
-            wettmarkt_html(home, away, api_p if api_p else {}),
+            wettmarkt_html(home, away, api_p if api_p else {}, is_finished=is_finished),
             unsafe_allow_html=True,
         )
 
@@ -795,10 +844,45 @@ elif st.session_state.page == "gruppe":
                         rows_html = ""
                         for k, t in enumerate(teams):
                             qual_cls = "qualified" if k < 2 else "out"
-                            form = form_badges(t.get("form", ""))
-                            rows_html += f'<tr class="{qual_cls}"><td>{t.get("team_name","")}</td><td>{t.get("won","")}</td><td>{t.get("drawn","")}</td><td>{t.get("lost","")}</td><td class="pts">{t.get("points","")}</td><td style="text-align:right">{form}</td></tr>'
+                            gd = t.get("goal_diff", 0) or 0
+                            gd_str = f"+{gd}" if gd > 0 else str(gd)
+                            gd_color = "#15803d" if gd > 0 else ("#dc2626" if gd < 0 else "#64748b")
+                            form = form_badges(str(t.get("form", "") or "")[:4])  # max 4 Spiele
+                            rows_html += (
+                                f'<tr class="{qual_cls}">'
+                                f'<td>{t.get("team_name","")}</td>'
+                                f'<td>{t.get("played","")}</td>'
+                                f'<td>{t.get("won","")}</td>'
+                                f'<td>{t.get("drawn","")}</td>'
+                                f'<td>{t.get("lost","")}</td>'
+                                f'<td style="color:{gd_color};font-weight:600">{gd_str}</td>'
+                                f'<td class="pts">{t.get("points","")}</td>'
+                                f'<td style="text-align:right">{form}</td>'
+                                f'</tr>'
+                            )
+                        upd = str(teams[0].get("updated_at", "") or "")[:16] if teams else ""
+                        upd_note = f'<div style="font-size:0.6rem;color:#c0cadb;margin-top:4px;text-align:right">Stand: {upd}</div>' if upd else ""
                         with gc:
-                            st.markdown(f'<div class="glass-sm"><div class="section-title">{gname}</div><table class="group-table"><thead><tr><th style="text-align:left">Team</th><th>S</th><th>U</th><th>N</th><th>Pkt</th><th style="text-align:right">Form</th></tr></thead><tbody>{rows_html}</tbody></table></div>', unsafe_allow_html=True)
+                            st.markdown(
+                                f'<div class="glass-sm">'
+                                f'<div class="section-title">{gname}</div>'
+                                f'<table class="group-table">'
+                                f'<thead><tr>'
+                                f'<th style="text-align:left">Team</th>'
+                                f'<th title="Spiele">Sp</th>'
+                                f'<th title="Siege">S</th>'
+                                f'<th title="Unentschieden">U</th>'
+                                f'<th title="Niederlagen">N</th>'
+                                f'<th title="Tordifferenz">TD</th>'
+                                f'<th title="Punkte">Pkt</th>'
+                                f'<th style="text-align:right">Form</th>'
+                                f'</tr></thead>'
+                                f'<tbody>{rows_html}</tbody>'
+                                f'</table>'
+                                f'{upd_note}'
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
         else:
             st.markdown('<div class="glass"><p style="color:#a0aec0;font-size:0.85rem;text-align:center">Gruppentabellen verfügbar ab Turnierbeginn · 11. Juni 2026</p></div>', unsafe_allow_html=True)
 
