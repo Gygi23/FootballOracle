@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError
 
 from agent.llm.base import BaseLLM
 from agent.prompts import SYSTEM_PROMPT
@@ -12,7 +13,7 @@ from agent.tools.mysql_tools import ALL_TOOLS, TOOL_FUNCTIONS
 load_dotenv()
 
 class GeminiLLM(BaseLLM):
-    MODEL = "gemini-2.5-flash-lite"
+    MODEL = "gemini-2.0-flash"
     MAX_ITERATIONS = 10
 
     def __init__(self):
@@ -23,14 +24,18 @@ class GeminiLLM(BaseLLM):
     # BaseLLM interface
     def chat(self, user_message: str) -> str:
         return self.run_agent_loop(user_message)
-    
+
     def new_session(self) -> None:
         self.chat_session = self.new_chat()
         print("[GeminiLLM] Neue Sitzung gestartet.")
 
     # Agent loop
-    def run_agent_loop(self, user_message:str) -> str:
-        response = self.chat_session.send_message(user_message)
+    def run_agent_loop(self, user_message: str) -> str:
+        try:
+            response = self.chat_session.send_message(user_message)
+        except ClientError as e:
+            return self._handle_api_error(e)
+
         iteration = 0
 
         while iteration < self.MAX_ITERATIONS:
@@ -47,10 +52,10 @@ class GeminiLLM(BaseLLM):
                 if part.function_call is not None
             ]
 
-         # final answer - no tool calling
+            # final answer - no tool calling
             if not function_calls:
                 return self.extract_text(response)
-            
+
             # tool-calls
             tool_response = []
             for fc in function_calls:
@@ -69,9 +74,24 @@ class GeminiLLM(BaseLLM):
                     )
                 )
 
-            response = self.chat_session.send_message(tool_response)
+            try:
+                response = self.chat_session.send_message(tool_response)
+            except ClientError as e:
+                return self._handle_api_error(e)
 
-        return "Entschuldigung, ich konnte keine vollständige Antwort generieren"
+        return "Entschuldigung, ich konnte keine vollständige Antwort generieren."
+
+    @staticmethod
+    def _handle_api_error(e: ClientError) -> str:
+        if e.status_code == 429:
+            print(f"[GeminiLLM] Rate-Limit erreicht: {e}")
+            return (
+                "⚠️ **API-Limit erreicht** — Das Gemini-Kontingent für heute ist ausgeschöpft. "
+                "Bitte warte einige Stunden oder überprüfe dein API-Kontingent unter "
+                "[ai.dev/rate-limit](https://ai.dev/rate-limit)."
+            )
+        print(f"[GeminiLLM] API-Fehler {e.status_code}: {e}")
+        return f"⚠️ **API-Fehler** — Anfrage konnte nicht verarbeitet werden (Status {e.status_code})."
 
 # helpers
 
