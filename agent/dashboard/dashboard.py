@@ -2,6 +2,9 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import date
@@ -126,7 +129,7 @@ if "chat_history" not in st.session_state:
 if "agent" not in st.session_state:
     import os
     from agent.agent import FootballAIAgent
-    _llm_backend = os.getenv("LLM_BACKEND", "gemini").lower()
+    _llm_backend = os.getenv("LLM_PROVIDER", os.getenv("LLM_BACKEND", "gemini")).lower()
     if _llm_backend == "ollama":
         from agent.llm.ollama import OllamaLLM
         st.session_state.agent = FootballAIAgent(llm=OllamaLLM())
