@@ -619,7 +619,8 @@ def get_api_predictions(fixture_id: int | None = None, limit: int = 10) -> str:
             home_win_implied, draw_implied, away_win_implied,
             home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
             home_odds_betfair, draw_odds_betfair, away_odds_betfair,
-            margin_avg, odds_bookmaker_count, market_confidence,
+            margin_avg, margin_min, margin_max,
+            odds_bookmaker_count, market_confidence,
             updated_at
         FROM api_predictions
         WHERE fixture_id = :fixture_id
@@ -634,7 +635,8 @@ def get_api_predictions(fixture_id: int | None = None, limit: int = 10) -> str:
             home_win_implied, draw_implied, away_win_implied,
             home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
             home_odds_betfair, draw_odds_betfair, away_odds_betfair,
-            margin_avg, odds_bookmaker_count, market_confidence,
+            margin_avg, margin_min, margin_max,
+            odds_bookmaker_count, market_confidence,
             updated_at
         FROM api_predictions
         ORDER BY updated_at DESC
@@ -721,31 +723,6 @@ TOOL_GET_FIXTURE_WITH_PREDICTION = {
 
 
 # -----------------------------------------------------------------------------
-# Kompatibilitaets-Aliases
-# -----------------------------------------------------------------------------
-
-
-def get_group_standings(teams: list[str]) -> str:
-    return get_historical_group_record(teams=teams, stage="WC")
-
-
-TOOL_GET_GROUP_STANDINGS = {
-    **TOOL_GET_HISTORICAL_GROUP_RECORD,
-    "name": "get_group_standings",
-}
-
-
-def get_predictions(team1: str | None = None, team2: str | None = None, limit: int = 5) -> str:
-    return get_agent_predictions(team1=team1, team2=team2, limit=limit)
-
-
-TOOL_GET_PREDICTIONS = {
-    **TOOL_GET_AGENT_PREDICTIONS,
-    "name": "get_predictions",
-}
-
-
-# -----------------------------------------------------------------------------
 # Tool Registry
 # -----------------------------------------------------------------------------
 
@@ -760,8 +737,6 @@ ALL_TOOLS = [
     TOOL_GET_AGENT_PREDICTIONS,
     TOOL_GET_API_PREDICTIONS,
     TOOL_GET_FIXTURE_WITH_PREDICTION,
-    TOOL_GET_GROUP_STANDINGS,
-    TOOL_GET_PREDICTIONS,
 ]
 
 TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
@@ -775,8 +750,6 @@ TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
     "get_agent_predictions": get_agent_predictions,
     "get_api_predictions": get_api_predictions,
     "get_fixture_with_prediction": get_fixture_with_prediction,
-    "get_group_standings": get_group_standings,
-    "get_predictions": get_predictions,
 }
 
 
