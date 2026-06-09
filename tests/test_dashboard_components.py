@@ -24,7 +24,8 @@ def test_get_api_predictions_sql_contains_required_fields():
     """
     source = inspect.getsource(get_api_predictions)
     for field in REQUIRED_FIELDS:
-        assert field in source, (
-            f"get_api_predictions() SQL fehlt Feld: '{field}'. "
-            f"Bitte SELECT in mysql_tools.py:~614 ergänzen."
+        count = source.count(field)
+        assert count >= 2, (
+            f"'{field}' muss in beiden SQL-Branches vorkommen, gefunden: {count} Mal. "
+            f"Bitte beide SELECT-Statements in mysql_tools.py ergänzen."
         )
