@@ -130,6 +130,9 @@ if "agent" not in st.session_state:
     if _llm_backend == "ollama":
         from agent.llm.ollama import OllamaLLM
         st.session_state.agent = FootballAIAgent(llm=OllamaLLM())
+    elif _llm_backend == "claude":
+        from agent.llm.anthropic import AnthropicLLM
+        st.session_state.agent = FootballAIAgent(llm=AnthropicLLM())
     else:
         from agent.llm.gemini import GeminiLLM
         st.session_state.agent = FootballAIAgent(llm=GeminiLLM())
