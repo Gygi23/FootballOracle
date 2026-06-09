@@ -3,10 +3,14 @@ import time
 import requests
 from datetime import date
 from statistics import mean
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 load_dotenv()
+
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from agent.tools.mysql_tools import get_engine
 
 API_KEY = os.getenv("API_FOOTBALL_KEY")
 API_BASE = "https://v3.football.api-sports.io"
@@ -15,10 +19,7 @@ HEADERS = {"x-apisports-key": API_KEY}
 LEAGUE_ID = 1
 SEASON = 2026
 CALL_LIMIT = 7500
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+engine = get_engine()
 
 # ─── Bookmaker Config ─────────────────────────────────────────────────────────
 

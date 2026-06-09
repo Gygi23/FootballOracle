@@ -11,15 +11,13 @@ Ausführen:
 import os
 import sys
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv()
 
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+from agent.tools.mysql_tools import get_engine
+engine = get_engine()
 
 
 def add_column_if_missing(conn, table: str, column: str, definition: str):

@@ -1,15 +1,16 @@
 import os
+import sys
 
 import pandas as pd
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 load_dotenv()
 
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from agent.tools.mysql_tools import get_engine
+
+engine = get_engine()
 
 # Pfad zur FIFA-Ranking CSV (relativ zum Projekt-Root)
 _FIFA_CSV = os.path.join(os.path.dirname(__file__), "..", "data", "raw", "fifa_ranking.csv")

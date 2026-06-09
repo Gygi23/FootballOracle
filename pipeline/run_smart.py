@@ -21,7 +21,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 load_dotenv()
 
@@ -32,10 +32,8 @@ _project_root = os.path.dirname(_this_dir)                          # .../footba
 sys.path.insert(0, _this_dir)
 sys.path.insert(0, _project_root)
 
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+from agent.tools.mysql_tools import get_engine
+engine = get_engine()
 
 LEAGUE_ID = 1
 SEASON    = 2026

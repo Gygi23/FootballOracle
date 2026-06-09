@@ -1,13 +1,18 @@
 import os
+import sys
 import time
 import requests
 from datetime import date, timedelta
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from dotenv import load_dotenv
 from odds_extractor import fetch_upcoming_odds
 from compute_kpis import run as update_team_stats
 
 load_dotenv()
+
+# Projekt-Root zum Path hinzufügen damit agent-Package findbar ist
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from agent.tools.mysql_tools import get_engine
 
 API_KEY = os.getenv("API_FOOTBALL_KEY")
 API_BASE = "https://v3.football.api-sports.io"
@@ -18,10 +23,7 @@ SEASON = 2026
 CALL_LIMIT = 7500
 LOOKAHEAD_DAYS = 3  # Predictions + Odds für nächste 3 Tage
 
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+engine = get_engine()
 
 
 # ─── API Call Tracker ─────────────────────────────────────────────────────────

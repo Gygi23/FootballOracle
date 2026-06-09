@@ -3,27 +3,26 @@ import os
 import time
 import requests
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
- 
+
 load_dotenv()
+
+from agent.tools.mysql_tools import get_engine
 
 API_KEY = os.getenv("API_FOOTBALL_KEY")
 API_BASE = "https://v3.football.api-sports.io"
 HEADERS = {"x-apisports-key": API_KEY}
- 
+
 LEAGUE_ID = 1
 SEASON = 2026
 POLL_INTERVAL = 60        # Sekunden zwischen Live-Updates
 SNAPSHOT_INTERVAL = 900   # Sekunden zwischen Snapshots (15 Min)
 CALL_LIMIT = 7500
- 
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+
+engine = get_engine()
 
 
 # api call tracker
