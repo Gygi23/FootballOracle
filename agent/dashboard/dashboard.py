@@ -407,20 +407,25 @@ def odds_tiles_html(
 
 def build_match_card_label(
     home: str, away: str,
-    home_score, away_score,
+    home_score: int | float | None, away_score: int | float | None,
     status: str, stage: str,
     match_date: str, group: str = ""
 ) -> str:
     """
-    Baut den Expander-Label-String.
-    Score nur anzeigen wenn Status NICHT NS (nicht gestartet).
+    Baut den Expander-Label-String für st.expander.
+    Score wird angezeigt bei Live-Status (1H, HT, 2H, ET, BT, P) und
+    Abgeschlossen-Status (FT, AET, PEN). Bei NS (nicht gestartet) oder
+    unbekanntem Status erscheint 'vs'.
     """
     live_statuses = {"1H", "HT", "2H", "ET", "BT", "P"}
     done_statuses = {"FT", "AET", "PEN"}
     show_score = status in (live_statuses | done_statuses)
 
     if show_score and home_score is not None and away_score is not None:
-        mid = f"{int(home_score)} : {int(away_score)}"
+        try:
+            mid = f"{int(float(home_score))} : {int(float(away_score))}"
+        except (TypeError, ValueError):
+            mid = "vs"
     else:
         mid = "vs"
 
