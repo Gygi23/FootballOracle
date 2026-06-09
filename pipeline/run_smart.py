@@ -11,7 +11,9 @@ Wird alle 2 Minuten via Cron ausgeführt und entscheidet selbst was zu tun ist:
 
 Setup (macOS/Linux crontab):
     crontab -e
-    */2 * * * * cd /pfad/zu/footballAI && .venv/bin/python pipeline/run_smart.py >> logs/smart.log 2>&1
+    */5 * * * * cd /pfad/zu/footballAI && .venv/bin/python pipeline/run_smart.py >> logs/smart.log 2>&1
+
+Railway Cron Schedule: */5 * * * *  (Railway minimum = 5 Min)
 """
 
 import os
