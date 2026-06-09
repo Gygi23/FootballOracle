@@ -143,3 +143,5 @@ def run():
 
 if __name__ == "__main__":
     run()
+    from compute_elo import run as run_elo
+    run_elo()
