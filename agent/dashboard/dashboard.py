@@ -124,9 +124,15 @@ if "page" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "agent" not in st.session_state:
+    import os
     from agent.agent import FootballAIAgent
-    from agent.llm.gemini import GeminiLLM
-    st.session_state.agent = FootballAIAgent(llm=GeminiLLM())
+    _llm_backend = os.getenv("LLM_BACKEND", "gemini").lower()
+    if _llm_backend == "ollama":
+        from agent.llm.ollama import OllamaLLM
+        st.session_state.agent = FootballAIAgent(llm=OllamaLLM())
+    else:
+        from agent.llm.gemini import GeminiLLM
+        st.session_state.agent = FootballAIAgent(llm=GeminiLLM())
 
 
 # ─── Data Loading ─────────────────────────────────────────────────────────────
