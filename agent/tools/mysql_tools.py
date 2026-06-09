@@ -615,7 +615,12 @@ def get_api_predictions(fixture_id: int | None = None, limit: int = 10) -> str:
         SELECT
             fixture_id, predicted_winner,
             home_win_pct, draw_pct, away_win_pct,
-            advice, home_odds, draw_odds, away_odds, updated_at
+            advice, home_odds, draw_odds, away_odds,
+            home_win_implied, draw_implied, away_win_implied,
+            home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
+            home_odds_betfair, draw_odds_betfair, away_odds_betfair,
+            margin_avg, odds_bookmaker_count, market_confidence,
+            updated_at
         FROM api_predictions
         WHERE fixture_id = :fixture_id
         """
@@ -625,7 +630,12 @@ def get_api_predictions(fixture_id: int | None = None, limit: int = 10) -> str:
         SELECT
             fixture_id, predicted_winner,
             home_win_pct, draw_pct, away_win_pct,
-            advice, home_odds, draw_odds, away_odds, updated_at
+            advice, home_odds, draw_odds, away_odds,
+            home_win_implied, draw_implied, away_win_implied,
+            home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
+            home_odds_betfair, draw_odds_betfair, away_odds_betfair,
+            margin_avg, odds_bookmaker_count, market_confidence,
+            updated_at
         FROM api_predictions
         ORDER BY updated_at DESC
         LIMIT :limit
