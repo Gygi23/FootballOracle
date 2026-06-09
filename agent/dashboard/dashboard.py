@@ -475,6 +475,11 @@ def wettmarkt_html(home: str, away: str, api_p: dict, is_finished: bool = False)
             f'</div>'
         )
 
+    # Opening Odds für Bewegungsanzeige
+    h_open = api_p.get("home_odds_open")
+    d_open = api_p.get("draw_odds_open")
+    a_open = api_p.get("away_odds_open")
+
     # ── Probability bar ───────────────────────────────────────────────────────
     hp = round((h_impl or 0) * 100)
     dp = round((d_impl or 0) * 100)
@@ -511,22 +516,36 @@ def wettmarkt_html(home: str, away: str, api_p: dict, is_finished: bool = False)
     # ── Odds table ────────────────────────────────────────────────────────────
     def _fmt(v): return f"{v:.2f}" if v else "–"
 
-    def _row(label, ho, do_, ao):
+    def _movement(current, opening):
+        """Pfeil + Farbe wenn Quote sich >2% bewegt hat."""
+        if not current or not opening or abs(current - opening) < 0.03:
+            return ""
+        if current < opening:
+            # Quote gesunken = Team mehr favorisiert (shortenend)
+            return f'<span style="color:#15803d;font-size:0.6rem;margin-left:2px">▼{opening:.2f}</span>'
+        else:
+            # Quote gestiegen = Team weniger favorisiert (drifted)
+            return f'<span style="color:#dc2626;font-size:0.6rem;margin-left:2px">▲{opening:.2f}</span>'
+
+    def _row(label, ho, do_, ao, ho_open=None, do_open=None, ao_open=None):
         return (
             f'<tr>'
             f'<td style="font-size:0.68rem;color:#6b7280;padding:5px 0;white-space:nowrap">{label}</td>'
             f'<td style="font-size:0.74rem;font-weight:700;color:#16213e;text-align:center;'
-            f'padding:5px 6px;font-family:\'DM Mono\',monospace">{_fmt(ho)}</td>'
+            f'padding:5px 6px;font-family:\'DM Mono\',monospace">'
+            f'{_fmt(ho)}{_movement(ho, ho_open)}</td>'
             f'<td style="font-size:0.74rem;font-weight:500;color:#64748b;text-align:center;'
-            f'padding:5px 6px;font-family:\'DM Mono\',monospace">{_fmt(do_)}</td>'
+            f'padding:5px 6px;font-family:\'DM Mono\',monospace">'
+            f'{_fmt(do_)}{_movement(do_, do_open)}</td>'
             f'<td style="font-size:0.74rem;font-weight:700;color:#dc6f5c;text-align:right;'
-            f'padding:5px 6px;font-family:\'DM Mono\',monospace">{_fmt(ao)}</td>'
+            f'padding:5px 6px;font-family:\'DM Mono\',monospace">'
+            f'{_fmt(ao)}{_movement(ao, ao_open)}</td>'
             f'</tr>'
         )
 
     rows = ""
     if h_odd:
-        rows += _row("Konsens", h_odd, d_odd, a_odd)
+        rows += _row("Konsens", h_odd, d_odd, a_odd, h_open, d_open, a_open)
     if h_pin:
         rows += _row("Pinnacle", h_pin, d_pin, a_pin)
     if h_bf:
@@ -708,17 +727,26 @@ def render_match_card(fx, api_preds, agent_preds):
                 )
 
             stats = [
-                ("Schüsse aufs Tor", fx.get("home_shots_on_target"),  fx.get("away_shots_on_target")),
-                ("Schüsse total",    fx.get("home_total_shots"),       fx.get("away_total_shots")),
-                ("Ballbesitz %",     fx.get("home_possession"),        fx.get("away_possession")),
-                ("Ecken",            fx.get("home_corners"),           fx.get("away_corners")),
-                ("Fouls",            fx.get("home_fouls"),             fx.get("away_fouls")),
-                ("Gelbe Karten",     fx.get("home_yellow_cards"),      fx.get("away_yellow_cards")),
-                ("Rote Karten",      fx.get("home_red_cards"),         fx.get("away_red_cards")),
-                ("Paraden",          fx.get("home_saves"),             fx.get("away_saves")),
-                ("Pässe",            fx.get("home_total_passes"),      fx.get("away_total_passes")),
-                ("Pässe %",          fx.get("home_passes_pct"),        fx.get("away_passes_pct")),
-                ("Abseits",          fx.get("home_offsides"),          fx.get("away_offsides")),
+                # Schüsse
+                ("Schüsse aufs Tor",       fx.get("home_shots_on_target"),    fx.get("away_shots_on_target")),
+                ("Schüsse daneben",        fx.get("home_shots_off_target"),   fx.get("away_shots_off_target")),
+                ("Schüsse geblockt",       fx.get("home_blocked_shots"),      fx.get("away_blocked_shots")),
+                ("Schüsse im Strafraum",   fx.get("home_shots_insidebox"),    fx.get("away_shots_insidebox")),
+                ("Schüsse ausserhalb",     fx.get("home_shots_outsidebox"),   fx.get("away_shots_outsidebox")),
+                ("Schüsse total",          fx.get("home_total_shots"),        fx.get("away_total_shots")),
+                # Spielkontrolle
+                ("Ballbesitz %",           fx.get("home_possession"),         fx.get("away_possession")),
+                ("Ecken",                  fx.get("home_corners"),            fx.get("away_corners")),
+                ("Abseits",                fx.get("home_offsides"),           fx.get("away_offsides")),
+                # Pässe
+                ("Pässe gesamt",           fx.get("home_total_passes"),       fx.get("away_total_passes")),
+                ("Pässe präzise",          fx.get("home_passes_accurate"),    fx.get("away_passes_accurate")),
+                ("Pässe %",                fx.get("home_passes_pct"),         fx.get("away_passes_pct")),
+                # Defensiv / Disziplin
+                ("Paraden",                fx.get("home_saves"),              fx.get("away_saves")),
+                ("Fouls",                  fx.get("home_fouls"),              fx.get("away_fouls")),
+                ("Gelbe Karten",           fx.get("home_yellow_cards"),       fx.get("away_yellow_cards")),
+                ("Rote Karten",            fx.get("home_red_cards"),          fx.get("away_red_cards")),
             ]
 
             bars = "".join(stat_bar(label, h, a) for label, h, a in stats)
@@ -733,6 +761,27 @@ def render_match_card(fx, api_preds, agent_preds):
                     f'</div>{bars}</div>',
                     unsafe_allow_html=True
                 )
+
+
+@st.cache_data(ttl=300)
+def _load_team_tournament_summary(team_name: str) -> dict:
+    from agent.tools.mysql_tools import get_tournament_team_summary
+    import json
+    r = json.loads(get_tournament_team_summary(team_name, season=2026))
+    rows = r.get("result", [])
+    return rows[0] if rows else {}
+
+
+def _team_stat_tile(label: str, value, pct: bool = False) -> str:
+    if value is None:
+        return ""
+    display = f"{value:.1f}%" if pct else str(int(value)) if isinstance(value, (int, float)) else str(value)
+    return (
+        f'<div style="background:rgba(0,0,0,0.03);border-radius:8px;padding:8px 10px;text-align:center">'
+        f'<div style="font-size:1rem;font-weight:700;color:#16213e">{display}</div>'
+        f'<div style="font-size:0.62rem;color:#94a3b8;margin-top:2px">{label}</div>'
+        f'</div>'
+    )
 
 
 def render_chat(key_suffix=""):
@@ -886,6 +935,43 @@ elif st.session_state.page == "gruppe":
         else:
             st.markdown('<div class="glass"><p style="color:#a0aec0;font-size:0.85rem;text-align:center">Gruppentabellen verfügbar ab Turnierbeginn · 11. Juni 2026</p></div>', unsafe_allow_html=True)
 
+        # ── Team-Turnierstatistik ─────────────────────────────────────────────
+        st.markdown('<div class="section-title" style="margin-top:0.5rem">Team-Turnierstatistik</div>', unsafe_allow_html=True)
+        all_team_names = sorted(set(
+            r.get("team_name", "") for r in standings if r.get("team_name")
+        ))
+        if all_team_names:
+            sel_team = st.selectbox("Team wählen", all_team_names, label_visibility="collapsed", key="team_stats_select")
+            if sel_team:
+                ts = _load_team_tournament_summary(sel_team)
+                if ts and ts.get("games_played", 0):
+                    g = ts["games_played"]
+                    gf, ga = ts.get("goals_scored") or 0, ts.get("goals_conceded") or 0
+                    st.markdown(
+                        f'<div class="glass-sm">'
+                        # Kopfzeile
+                        f'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">'
+                        f'<span style="font-size:0.85rem;font-weight:600;color:#16213e">{sel_team}</span>'
+                        f'<span style="font-size:0.72rem;color:#8a9ab5">{g} Spiele · {ts.get("wins",0)}S {ts.get("draws",0)}U {ts.get("losses",0)}N · {gf}:{ga} Tore</span>'
+                        f'</div>'
+                        # Stat-Grid
+                        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'
+                        + _team_stat_tile("Schüsse aufs Tor",   ts.get("shots_on_target"))
+                        + _team_stat_tile("Schüsse gesamt",     ts.get("total_shots"))
+                        + _team_stat_tile("Im Strafraum",       ts.get("shots_insidebox"))
+                        + _team_stat_tile("Ballbesitz Ø",       ts.get("avg_possession"), pct=True)
+                        + _team_stat_tile("Pässe gesamt",       ts.get("total_passes"))
+                        + _team_stat_tile("Pass-Genauigkeit",   ts.get("avg_pass_accuracy"), pct=True)
+                        + _team_stat_tile("Paraden",            ts.get("goalkeeper_saves"))
+                        + _team_stat_tile("Fouls",              ts.get("fouls"))
+                        + f'</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(f'<div class="glass-sm"><p style="color:#a0aec0;font-size:0.82rem">{sel_team} hat noch keine WM-Spiele absolviert.</p></div>', unsafe_allow_html=True)
+
+        # ── Spiele nach Gruppe ────────────────────────────────────────────────
         st.markdown('<div class="section-title" style="margin-top:0.5rem">Spiele</div>', unsafe_allow_html=True)
         real_groups = sorted(set(r.get("group_name", "") for r in standings if r.get("group_name")))
         group_options = real_groups if real_groups else ["Group A", "Group B", "Group C"]

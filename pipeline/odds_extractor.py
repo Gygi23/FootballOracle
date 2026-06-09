@@ -254,6 +254,7 @@ def fetch_upcoming_odds(api_get_func):
                 INSERT INTO api_predictions (
                     fixture_id,
                     home_odds, draw_odds, away_odds,
+                    home_odds_open, draw_odds_open, away_odds_open,
                     home_win_implied, draw_implied, away_win_implied,
                     home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
                     home_odds_betfair,  draw_odds_betfair,  away_odds_betfair,
@@ -262,6 +263,7 @@ def fetch_upcoming_odds(api_get_func):
                 ) VALUES (
                     :fixture_id,
                     :home_odds, :draw_odds, :away_odds,
+                    :home_odds, :draw_odds, :away_odds,
                     :home_win_implied, :draw_implied, :away_win_implied,
                     :home_odds_pinnacle, :draw_odds_pinnacle, :away_odds_pinnacle,
                     :home_odds_betfair,  :draw_odds_betfair,  :away_odds_betfair,
@@ -269,9 +271,14 @@ def fetch_upcoming_odds(api_get_func):
                     :odds_bookmaker_count, :market_confidence
                 )
                 ON DUPLICATE KEY UPDATE
+                    -- Aktuelle Quoten immer updaten
                     home_odds             = :home_odds,
                     draw_odds             = :draw_odds,
                     away_odds             = :away_odds,
+                    -- Opening Odds nur beim ersten Mal setzen (COALESCE bewahrt bestehenden Wert)
+                    home_odds_open        = COALESCE(home_odds_open, :home_odds),
+                    draw_odds_open        = COALESCE(draw_odds_open, :draw_odds),
+                    away_odds_open        = COALESCE(away_odds_open, :away_odds),
                     home_win_implied      = :home_win_implied,
                     draw_implied          = :draw_implied,
                     away_win_implied      = :away_win_implied,

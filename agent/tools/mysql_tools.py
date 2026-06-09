@@ -629,38 +629,22 @@ TOOL_GET_AGENT_PREDICTIONS = {
 def get_api_predictions(fixture_id: int | None = None, limit: int = 10) -> str:
     limit = min(int(limit), 200)  # WM 2026 hat max. 104 Spiele
 
-    if fixture_id is not None:
-        sql = """
-        SELECT
+    cols = """
             fixture_id, predicted_winner,
             home_win_pct, draw_pct, away_win_pct,
             advice, home_odds, draw_odds, away_odds,
+            home_odds_open, draw_odds_open, away_odds_open,
             home_win_implied, draw_implied, away_win_implied,
             home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
             home_odds_betfair, draw_odds_betfair, away_odds_betfair,
             margin_avg, margin_min, margin_max,
             odds_bookmaker_count, market_confidence,
-            updated_at
-        FROM api_predictions
-        WHERE fixture_id = :fixture_id
-        """
+            updated_at"""
+    if fixture_id is not None:
+        sql = f"SELECT {cols} FROM api_predictions WHERE fixture_id = :fixture_id"
         params = {"fixture_id": fixture_id}
     else:
-        sql = """
-        SELECT
-            fixture_id, predicted_winner,
-            home_win_pct, draw_pct, away_win_pct,
-            advice, home_odds, draw_odds, away_odds,
-            home_win_implied, draw_implied, away_win_implied,
-            home_odds_pinnacle, draw_odds_pinnacle, away_odds_pinnacle,
-            home_odds_betfair, draw_odds_betfair, away_odds_betfair,
-            margin_avg, margin_min, margin_max,
-            odds_bookmaker_count, market_confidence,
-            updated_at
-        FROM api_predictions
-        ORDER BY updated_at DESC
-        LIMIT :limit
-        """
+        sql = f"SELECT {cols} FROM api_predictions ORDER BY updated_at DESC LIMIT :limit"
         params = {"limit": limit}
 
     return query_to_json(sql, params)
@@ -745,6 +729,85 @@ TOOL_GET_FIXTURE_WITH_PREDICTION = {
 # Tool Registry
 # -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# Tool 11: get_tournament_team_summary
+# -----------------------------------------------------------------------------
+
+
+def get_tournament_team_summary(team_name: str, season: int = 2026) -> str:
+    """Aggregierte Turnierstatistik eines Teams über alle abgeschlossenen Spiele."""
+    sql = """
+    SELECT
+        :team                                                        AS team_name,
+        COUNT(*)                                                     AS games_played,
+        SUM(CASE
+            WHEN home_team = :team AND home_score > away_score THEN 1
+            WHEN away_team = :team AND away_score > home_score THEN 1
+            ELSE 0 END)                                              AS wins,
+        SUM(CASE WHEN home_score = away_score THEN 1 ELSE 0 END)    AS draws,
+        SUM(CASE
+            WHEN home_team = :team AND home_score < away_score THEN 1
+            WHEN away_team = :team AND away_score < home_score THEN 1
+            ELSE 0 END)                                              AS losses,
+        SUM(CASE WHEN home_team = :team THEN home_score
+                 ELSE away_score END)                                AS goals_scored,
+        SUM(CASE WHEN home_team = :team THEN away_score
+                 ELSE home_score END)                                AS goals_conceded,
+        -- Angriff
+        SUM(CASE WHEN home_team = :team THEN home_shots_on_target
+                 ELSE away_shots_on_target END)                     AS shots_on_target,
+        SUM(CASE WHEN home_team = :team THEN home_total_shots
+                 ELSE away_total_shots END)                         AS total_shots,
+        SUM(CASE WHEN home_team = :team THEN home_shots_insidebox
+                 ELSE away_shots_insidebox END)                     AS shots_insidebox,
+        -- Ballbesitz
+        ROUND(AVG(CASE WHEN home_team = :team THEN home_possession
+                       ELSE away_possession END), 1)                AS avg_possession,
+        -- Pässe
+        SUM(CASE WHEN home_team = :team THEN home_total_passes
+                 ELSE away_total_passes END)                        AS total_passes,
+        ROUND(AVG(CASE WHEN home_team = :team THEN home_passes_pct
+                       ELSE away_passes_pct END), 1)                AS avg_pass_accuracy,
+        -- Defensiv
+        SUM(CASE WHEN home_team = :team THEN home_saves
+                 ELSE away_saves END)                               AS goalkeeper_saves,
+        SUM(CASE WHEN home_team = :team THEN home_fouls
+                 ELSE away_fouls END)                               AS fouls,
+        SUM(CASE WHEN home_team = :team THEN home_yellow_cards
+                 ELSE away_yellow_cards END)                        AS yellow_cards,
+        SUM(CASE WHEN home_team = :team THEN home_red_cards
+                 ELSE away_red_cards END)                           AS red_cards,
+        SUM(CASE WHEN home_team = :team THEN home_corners
+                 ELSE away_corners END)                             AS corners,
+        SUM(CASE WHEN home_team = :team THEN home_offsides
+                 ELSE away_offsides END)                            AS offsides
+    FROM tournament_fixtures
+    WHERE season = :season
+      AND league_id = 1
+      AND status IN ('FT', 'AET', 'PEN')
+      AND (home_team = :team OR away_team = :team)
+    """
+    return query_to_json(sql, {"team": team_name, "season": season})
+
+
+TOOL_GET_TOURNAMENT_TEAM_SUMMARY = {
+    "name": "get_tournament_team_summary",
+    "description": (
+        "Aggregierte WM-Turnierstatistik eines Teams: Spiele, Tore, Schüsse, "
+        "Ballbesitz, Pässe, Paraden, Karten über alle abgeschlossenen Turnierspiele. "
+        "Verwenden wenn nach Turnierform oder Spielstärke im aktuellen Turnier gefragt wird."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "team_name": {"type": "string", "description": "Teamname auf Englisch."},
+            "season": {"type": "integer", "description": "Saison/Jahr. Standard 2026.", "default": 2026},
+        },
+        "required": ["team_name"],
+    },
+}
+
+
 ALL_TOOLS = [
     TOOL_GET_TEAM_MATCHES,
     TOOL_GET_TEAM_STATS,
@@ -756,6 +819,7 @@ ALL_TOOLS = [
     TOOL_GET_AGENT_PREDICTIONS,
     TOOL_GET_API_PREDICTIONS,
     TOOL_GET_FIXTURE_WITH_PREDICTION,
+    TOOL_GET_TOURNAMENT_TEAM_SUMMARY,
 ]
 
 TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
@@ -769,6 +833,7 @@ TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
     "get_agent_predictions": get_agent_predictions,
     "get_api_predictions": get_api_predictions,
     "get_fixture_with_prediction": get_fixture_with_prediction,
+    "get_tournament_team_summary": get_tournament_team_summary,
 }
 
 
