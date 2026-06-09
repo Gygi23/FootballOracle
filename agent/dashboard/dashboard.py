@@ -417,6 +417,141 @@ def odds_tiles_html(
     )
 
 
+def wettmarkt_html(home: str, away: str, api_p: dict) -> str:
+    """
+    Kompakter Wettmarkt-Block: Wahrscheinlichkeitsbalken + Odds-Tabelle.
+    Immer angezeigt — zeigt Placeholder wenn keine Odds verfügbar.
+    """
+    h_impl = api_p.get("home_win_implied")
+    d_impl = api_p.get("draw_implied")
+    a_impl = api_p.get("away_win_implied")
+    h_odd  = api_p.get("home_odds")
+    d_odd  = api_p.get("draw_odds")
+    a_odd  = api_p.get("away_odds")
+    h_pin  = api_p.get("home_odds_pinnacle")
+    d_pin  = api_p.get("draw_odds_pinnacle")
+    a_pin  = api_p.get("away_odds_pinnacle")
+    h_bf   = api_p.get("home_odds_betfair")
+    d_bf   = api_p.get("draw_odds_betfair")
+    a_bf   = api_p.get("away_odds_betfair")
+    bm_cnt = api_p.get("odds_bookmaker_count")
+    margin = api_p.get("margin_avg")
+    conf   = api_p.get("market_confidence")
+
+    # Header
+    meta_parts = []
+    if bm_cnt:
+        meta_parts.append(f"{bm_cnt} BMs")
+    if margin is not None:
+        meta_parts.append(f"Margin {round(margin * 100, 1)}%")
+    meta_str = " · ".join(meta_parts)
+
+    conf_map = {
+        "HIGH":   ("Markt sicher",  "#d4edda", "#1a6b2e"),
+        "MEDIUM": ("Markt neutral", "#fff3cd", "#856404"),
+        "LOW":    ("Offenes Spiel", "#f8d7da", "#842029"),
+    }
+    conf_label, conf_bg, conf_color = conf_map.get(conf or "", ("", "#f0f0f0", "#888"))
+    conf_badge_html = (
+        f'<span style="padding:1px 6px;border-radius:4px;background:{conf_bg};'
+        f'color:{conf_color};font-size:0.63rem;font-weight:600">{conf_label}</span>'
+        if conf_label else ""
+    )
+
+    header = (
+        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        f'<span style="font-size:0.7rem;font-weight:600;color:#8a9ab5;'
+        f'text-transform:uppercase;letter-spacing:0.6px">Wettmarkt</span>'
+        f'<div style="display:flex;gap:6px;align-items:center">'
+        f'<span style="font-size:0.63rem;color:#a0aec0">{meta_str}</span>'
+        f'{conf_badge_html}'
+        f'</div></div>'
+    )
+
+    # No odds → placeholder
+    if not h_odd and not h_impl:
+        return (
+            f'<div style="padding:10px 0;border-top:1px solid rgba(0,0,0,0.06)">'
+            f'{header}'
+            f'<p style="font-size:0.72rem;color:#c0cadb;margin:4px 0">'
+            f'Odds werden verfügbar sobald Bookmaker öffnen</p>'
+            f'</div>'
+        )
+
+    # Probability bar
+    hp = round((h_impl or 0) * 100)
+    dp = round((d_impl or 0) * 100)
+    ap = max(0, 100 - hp - dp)
+
+    prob_bar = (
+        f'<div style="margin-bottom:10px">'
+        f'<div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-bottom:4px">'
+        f'<div style="width:{hp}%;background:#16213e"></div>'
+        f'<div style="width:{dp}%;background:#cbd5e1"></div>'
+        f'<div style="width:{ap}%;background:#dc6f5c"></div>'
+        f'</div>'
+        f'<div style="display:flex;justify-content:space-between;font-size:0.7rem">'
+        f'<span style="color:#16213e;font-weight:600">{home} {hp}%</span>'
+        f'<span style="color:#718096">{dp}%&nbsp;X</span>'
+        f'<span style="color:#dc6f5c;font-weight:600">{ap}%&nbsp;{away}</span>'
+        f'</div></div>'
+    )
+
+    # Odds table
+    def _fmt(v): return f"{v:.2f}" if v else "–"
+
+    def _row(source, ho, do_, ao, pct_home=None, pct_draw=None, pct_away=None):
+        ho_s, do_s, ao_s = _fmt(ho), _fmt(do_), _fmt(ao)
+        pct_row = ""
+        if pct_home is not None:
+            ph = round(pct_home * 100)
+            pd_ = round(pct_draw * 100)
+            pa = max(0, 100 - ph - pd_)
+            pct_row = (
+                f'<tr>'
+                f'<td style="font-size:0.68rem;color:#8a9ab5;padding:2px 4px 0">{source}</td>'
+                f'<td style="font-size:0.72rem;font-weight:600;color:#16213e;text-align:center;padding:2px 4px 0">{ph}%</td>'
+                f'<td style="font-size:0.68rem;color:#718096;text-align:center;padding:2px 4px 0">{pd_}%</td>'
+                f'<td style="font-size:0.72rem;font-weight:600;color:#dc6f5c;text-align:right;padding:2px 4px 0">{pa}%</td>'
+                f'</tr>'
+            )
+        odds_source = "" if pct_home is not None else source
+        return pct_row + (
+            f'<tr>'
+            f'<td style="font-size:0.63rem;color:#a0aec0;padding:0 4px 5px">{odds_source}</td>'
+            f'<td style="font-size:0.65rem;color:#9aa6ba;text-align:center;padding:0 4px 5px;font-family:monospace">{ho_s}</td>'
+            f'<td style="font-size:0.65rem;color:#9aa6ba;text-align:center;padding:0 4px 5px;font-family:monospace">{do_s}</td>'
+            f'<td style="font-size:0.65rem;color:#9aa6ba;text-align:right;padding:0 4px 5px;font-family:monospace">{ao_s}</td>'
+            f'</tr>'
+        )
+
+    rows = ""
+    if h_odd:
+        rows += _row("Konsens", h_odd, d_odd, a_odd, h_impl, d_impl, a_impl)
+    if h_pin:
+        rows += _row("Pinnacle", h_pin, d_pin, a_pin)
+    if h_bf:
+        rows += _row("Betfair", h_bf, d_bf, a_bf)
+
+    table = (
+        f'<table style="width:100%;border-collapse:collapse">'
+        f'<tr>'
+        f'<th style="font-size:0.63rem;color:#a0aec0;font-weight:400;text-align:left;padding:0 4px 4px"></th>'
+        f'<th style="font-size:0.63rem;color:#16213e;font-weight:600;text-align:center;padding:0 4px 4px">Heim</th>'
+        f'<th style="font-size:0.63rem;color:#718096;font-weight:600;text-align:center;padding:0 4px 4px">X</th>'
+        f'<th style="font-size:0.63rem;color:#dc6f5c;font-weight:600;text-align:right;padding:0 4px 4px">Auswärts</th>'
+        f'</tr>'
+        f'{rows}'
+        f'</table>'
+    )
+
+    return (
+        f'<div style="padding:10px 0;border-top:1px solid rgba(0,0,0,0.06)">'
+        f'{header}{prob_bar}{table}'
+        f'</div>'
+    )
+
+
 def build_match_card_label(
     home: str, away: str,
     home_score: int | float | None, away_score: int | float | None,
@@ -492,111 +627,11 @@ def render_match_card(fx, api_preds, agent_preds):
             unsafe_allow_html=True
         )
 
-        # ── Prognosen ────────────────────────────────────────────────────────
-        pred_html = ""
-        if api_p and api_p.get("home_win_pct"):
-            pred_html += pred_row_html(
-                "Football API",
-                api_p.get("home_win_pct"),
-                api_p.get("draw_pct"),
-                api_p.get("away_win_pct")
-            )
-        if agent_p:
-            pred_html += pred_row_html(
-                "WM-Orakel",
-                agent_p.get("home_win_prob"),
-                agent_p.get("draw_prob"),
-                agent_p.get("away_win_prob")
-            )
-        if pred_html:
-            st.markdown(
-                f'<div style="font-size:0.7rem;font-weight:600;color:#a0aec0;'
-                f'text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">'
-                f'Prognosen</div>{pred_html}',
-                unsafe_allow_html=True
-            )
-
         # ── Wettmarkt ────────────────────────────────────────────────────────
-        if api_p and api_p.get("home_odds"):
-            st.markdown(
-                '<div style="font-size:0.7rem;font-weight:600;color:#a0aec0;'
-                'text-transform:uppercase;letter-spacing:0.6px;'
-                'margin-top:12px;margin-bottom:6px">Wettmarkt</div>',
-                unsafe_allow_html=True
-            )
-
-            h_odd  = api_p.get("home_odds")
-            d_odd  = api_p.get("draw_odds")
-            a_odd  = api_p.get("away_odds")
-            h_impl = api_p.get("home_win_implied")
-            d_impl = api_p.get("draw_implied")
-            a_impl = api_p.get("away_win_implied")
-            h_pin  = api_p.get("home_odds_pinnacle")
-            h_bf   = api_p.get("home_odds_betfair")
-            bm_cnt = api_p.get("odds_bookmaker_count")
-            margin = api_p.get("margin_avg")
-
-            # ── Konsens-Quoten (Kacheln) ──────────────────────────────────
-            meta_parts = []
-            if bm_cnt is not None:
-                meta_parts.append(f"{bm_cnt} Bookmakers")
-            if margin is not None:
-                meta_parts.append(f"Margin {round(margin * 100, 1)}%")
-            meta_str = f"Konsens · {' · '.join(meta_parts)}" if meta_parts else ""
-
-            st.markdown(
-                odds_tiles_html(
-                    label="Konsens-Quoten",
-                    home_team=home, away_team=away,
-                    h_odd=h_odd, d_odd=d_odd, a_odd=a_odd,
-                    meta=meta_str,
-                ),
-                unsafe_allow_html=True,
-            )
-
-            # ── Implizite Wahrscheinlichkeiten (margin-bereinigt) ─────────
-            if any(x is not None for x in (h_impl, d_impl, a_impl)):
-                st.markdown(
-                    odds_tiles_html(
-                        label="Implizite W'keiten",
-                        home_team=home, away_team=away,
-                        h_odd=0, d_odd=0, a_odd=0,
-                        h_prob=h_impl, d_prob=d_impl, a_prob=a_impl,
-                    ),
-                    unsafe_allow_html=True,
-                )
-
-            # ── Pinnacle ──────────────────────────────────────────────────
-            if h_pin:
-                st.markdown(
-                    odds_tiles_html(
-                        label="Pinnacle",
-                        home_team=home, away_team=away,
-                        h_odd=h_pin,
-                        d_odd=api_p.get("draw_odds_pinnacle") or 0,
-                        a_odd=api_p.get("away_odds_pinnacle") or 0,
-                    ),
-                    unsafe_allow_html=True,
-                )
-
-            # ── Betfair ───────────────────────────────────────────────────
-            if h_bf:
-                st.markdown(
-                    odds_tiles_html(
-                        label="Betfair",
-                        home_team=home, away_team=away,
-                        h_odd=h_bf,
-                        d_odd=api_p.get("draw_odds_betfair") or 0,
-                        a_odd=api_p.get("away_odds_betfair") or 0,
-                    ),
-                    unsafe_allow_html=True,
-                )
-
-        elif not pred_html:
-            st.markdown(
-                '<p style="font-size:0.75rem;color:#c0cadb;margin:4px 0">Predictions folgen</p>',
-                unsafe_allow_html=True
-            )
+        st.markdown(
+            wettmarkt_html(home, away, api_p if api_p else {}),
+            unsafe_allow_html=True,
+        )
 
         # ── Match-Statistiken ────────────────────────────────────────────────
         if status in ["1H", "HT", "2H", "FT", "AET", "PEN"]:
