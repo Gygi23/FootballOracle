@@ -94,3 +94,41 @@ def test_odds_tiles_html_meta_string_rendered():
                meta="Konsens · 6 Bookmakers · Margin 4.2%")
     assert "6 Bookmakers" in html
     assert "4.2%" in html
+
+
+# ── Task 3: build_match_card_label ────────────────────────────────────────────
+
+def _import_build_match_card_label():
+    from agent.dashboard.dashboard import build_match_card_label
+    return build_match_card_label
+
+
+def test_ns_match_shows_vs_not_score():
+    """Status NS → kein Score, zeigt 'vs'."""
+    fn = _import_build_match_card_label()
+    label = fn(home="Mexico", away="South Africa",
+                home_score=0, away_score=0,
+                status="NS", stage="Group Stage - 1",
+                match_date="2026-06-11 21:00", group="Group A")
+    assert "vs" in label
+    assert "0 : 0" not in label
+
+
+def test_live_match_shows_score():
+    """Status 1H → Score wird angezeigt."""
+    fn = _import_build_match_card_label()
+    label = fn(home="Brazil", away="Morocco",
+                home_score=2, away_score=1,
+                status="1H", stage="Group Stage - 1",
+                match_date="2026-06-18 18:00", group="Group C")
+    assert "2" in label and "1" in label
+
+
+def test_ft_match_shows_score():
+    """Status FT → Score wird angezeigt."""
+    fn = _import_build_match_card_label()
+    label = fn(home="Germany", away="Japan",
+                home_score=3, away_score=1,
+                status="FT", stage="Group Stage - 1",
+                match_date="2026-06-20 15:00", group="Group E")
+    assert "3" in label and "1" in label

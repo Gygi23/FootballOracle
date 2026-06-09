@@ -405,6 +405,30 @@ def odds_tiles_html(
     )
 
 
+def build_match_card_label(
+    home: str, away: str,
+    home_score, away_score,
+    status: str, stage: str,
+    match_date: str, group: str = ""
+) -> str:
+    """
+    Baut den Expander-Label-String.
+    Score nur anzeigen wenn Status NICHT NS (nicht gestartet).
+    """
+    live_statuses = {"1H", "HT", "2H", "ET", "BT", "P"}
+    done_statuses = {"FT", "AET", "PEN"}
+    show_score = status in (live_statuses | done_statuses)
+
+    if show_score and home_score is not None and away_score is not None:
+        mid = f"{int(home_score)} : {int(away_score)}"
+    else:
+        mid = "vs"
+
+    dt = str(match_date)[:16].replace("T", " ")
+    prefix = f"{group}  ·  " if group else ""
+    return f"{home}  {mid}  {away}   —   {prefix}{stage}  ·  {dt}"
+
+
 def render_match_card(fx, api_preds, agent_preds):
     home = fx.get("home_team", "")
     away = fx.get("away_team", "")
@@ -412,12 +436,8 @@ def render_match_card(fx, api_preds, agent_preds):
         return
 
     fid    = fx.get("fixture_id")
-    dt     = str(fx.get("match_date", ""))[:16].replace("T", " ")
     stage  = fx.get("stage", "")
     status = fx.get("status", "NS")
-    score  = ""
-    if fx.get("home_score") is not None and fx.get("away_score") is not None:
-        score = f"{int(fx['home_score'])} : {int(fx['away_score'])}"
 
     status_color = {
         "NS": "#a0aec0", "1H": "#22c55e", "HT": "#f59e0b",
@@ -432,9 +452,16 @@ def render_match_card(fx, api_preds, agent_preds):
     api_p   = api_preds.get(fid, {})
     agent_p = agent_preds.get((home, away), {})
 
-    # Expander-Label: immer lesbar
-    match_display  = f"{home}  {score}  {away}" if score else f"{home}  vs  {away}"
-    expander_label = f"{match_display}   —   {stage}  ·  {dt}"
+    # Expander-Label — Score nur bei laufenden/abgeschlossenen Spielen
+    group = fx.get("group_name", "")
+    expander_label = build_match_card_label(
+        home=home, away=away,
+        home_score=fx.get("home_score"),
+        away_score=fx.get("away_score"),
+        status=status, stage=stage,
+        match_date=fx.get("match_date", ""),
+        group=group,
+    )
 
     with st.expander(expander_label, expanded=False):
 
