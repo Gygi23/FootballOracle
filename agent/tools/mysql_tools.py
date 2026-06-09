@@ -28,6 +28,20 @@ def get_engine() -> Engine:
 
 DEFAULT_ERROR_RESULT = {"result": [], "count": 0}
 
+# Namens-Normalisierung: API-Football → historische Daten (matches / team_stats)
+_TEAM_NAME_MAP: dict[str, str] = {
+    "Bosnia & Herzegovina":  "Bosnia and Herzegovina",
+    "Cape Verde Islands":    "Cape Verde",
+    "Congo DR":              "DR Congo",
+    "Türkiye":               "Turkey",
+    "USA":                   "United States",
+}
+
+
+def normalize_team_name(name: str) -> str:
+    """Mappt API-Football-Teamnamen auf die Schreibweise in den historischen Daten."""
+    return _TEAM_NAME_MAP.get(name, name)
+
 
 def json_response(payload: dict[str, Any]) -> str:
     return json.dumps(payload, default=str, ensure_ascii=False)
@@ -72,6 +86,7 @@ def query_to_json(sql: str, params: dict = None) -> str:
 
 
 def get_team_matches(team_name: str, limit: int = 10) -> str:
+    team_name = normalize_team_name(team_name)
     limit = min(int(limit), 50)
 
     sql = """
@@ -126,6 +141,7 @@ TOOL_GET_TEAM_MATCHES = {
 
 
 def get_team_stats(team_name: str) -> str:
+    team_name = normalize_team_name(team_name)
     sql = """
     SELECT
         team_name,
@@ -173,6 +189,7 @@ TOOL_GET_TEAM_STATS = {
 
 
 def calculate_team_record(team_name: str, stage: str | None = None) -> str:
+    team_name = normalize_team_name(team_name)
     params: dict[str, Any] = {"team": team_name}
     stage_filter = ""
 
@@ -248,6 +265,8 @@ TOOL_CALCULATE_TEAM_RECORD = {
 
 
 def get_head_to_head(team1: str, team2: str, limit: int = 10) -> str:
+    team1 = normalize_team_name(team1)
+    team2 = normalize_team_name(team2)
     limit = min(int(limit), 50)
 
     sql = """
