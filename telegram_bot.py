@@ -53,6 +53,10 @@ else:
 from agent.agent import FootballAIAgent
 agent = FootballAIAgent(llm=_llm)
 
+# Separater Agent für automatische Benachrichtigungen
+# (damit Pre-Game-Analysen die Chat-Session des Nutzers nicht überschreiben)
+_notif_agent = FootballAIAgent(llm=_llm)
+
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
@@ -119,7 +123,11 @@ async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─── Automatische Benachrichtigungen ──────────────────────────────────────────
 
 async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
-    """30 Minuten vor Spielstart eine Nachricht senden."""
+    """
+    30 Minuten vor Spielstart:
+    1. Sofortige Benachrichtigung
+    2. Agent-Analyse als Folgenachricht (läuft im Hintergrund)
+    """
     if not OWNER_CHAT_ID:
         return
 
@@ -135,13 +143,37 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
         """)).fetchall()
 
     for r in rows:
+        # 1. Sofortige Benachrichtigung
         await ctx.bot.send_message(
             OWNER_CHAT_ID,
-            f"🔔 *Spielstart in 30 Minuten!*\n\n"
+            f"🔔 *Spielstart in 30 Minuten*\n\n"
             f"⚽ {r.home_team} vs {r.away_team}\n"
-            f"🕐 {r.match_date.strftime('%H:%M')} Uhr · {r.stage}",
+            f"🕐 {r.match_date.strftime('%H:%M')} Uhr · {r.stage}\n\n"
+            f"_Analyse wird geladen..._",
             parse_mode="Markdown"
         )
+
+        # 2. Agent-Analyse (blockierend → in Thread-Pool auslagern)
+        import asyncio
+        prompt = (
+            f"Spielstart in 30 Minuten: {r.home_team} vs {r.away_team} ({r.stage}). "
+            f"Gib mir eine kompakte Einschätzung für den Ausgang: Wer gewinnt, "
+            f"warum, und wie sicher ist der Markt? Maximal 4 Sätze."
+        )
+        _notif_agent.new_session()
+        try:
+            loop = asyncio.get_running_loop()
+            analysis = await loop.run_in_executor(None, _notif_agent.chat, prompt)
+            # Auf 3900 Zeichen kürzen (Telegram-Limit 4096)
+            if len(analysis) > 3900:
+                analysis = analysis[:3900] + "…"
+            await ctx.bot.send_message(OWNER_CHAT_ID, f"🤖 {analysis}")
+        except Exception as e:
+            logger.error(f"Pre-game Analyse fehlgeschlagen: {e}")
+            await ctx.bot.send_message(
+                OWNER_CHAT_ID,
+                "⚠️ Analyse konnte nicht geladen werden."
+            )
 
 
 async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
@@ -149,9 +181,8 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
     Starke Quoten-Bewegungen melden — vergleicht die letzten ZWEI Snapshots.
 
     Schwellen (abgestuft nach Zeitnähe zum Anpfiff):
-      < 24h vor Anpfiff  → Bewegung > 0.10  (empfindlich — Aufstellung/Verletzung)
-      24h–48h vorher     → Bewegung > 0.20  (nur klare Signale)
-      > 48h vorher       → keine Benachrichtigung (Markt-Rauschen)
+      < 24h vor Anpfiff  → Bewegung > 0.25  (nur starke Signale — Verletzung/Aufstellung)
+      > 24h vorher       → keine Benachrichtigung (zu früh, noch Markt-Rauschen)
     """
     if not OWNER_CHAT_ID:
         return
@@ -180,17 +211,10 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
             JOIN ranked r2 ON r2.fixture_id = tf.fixture_id AND r2.rn = 2
             WHERE tf.season = 2026
               AND tf.status = 'NS'
-              AND tf.match_date BETWEEN NOW() AND NOW() + INTERVAL 48 HOUR
+              AND tf.match_date BETWEEN NOW() AND NOW() + INTERVAL 24 HOUR
               AND (
-                  -- < 24h: Schwelle 0.10
-                  (TIMESTAMPDIFF(HOUR, NOW(), tf.match_date) < 24
-                   AND (ABS(r1.home_odds - r2.home_odds) > 0.10
-                        OR ABS(r1.away_odds - r2.away_odds) > 0.10))
-                  OR
-                  -- 24–48h: Schwelle 0.20 (nur starke Signale)
-                  (TIMESTAMPDIFF(HOUR, NOW(), tf.match_date) BETWEEN 24 AND 48
-                   AND (ABS(r1.home_odds - r2.home_odds) > 0.20
-                        OR ABS(r1.away_odds - r2.away_odds) > 0.20))
+                  ABS(r1.home_odds - r2.home_odds)  > 0.25
+                  OR ABS(r1.away_odds - r2.away_odds) > 0.25
               )
             ORDER BY tf.match_date
         """)).fetchall()
@@ -212,7 +236,7 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
             ("Unentschieden", r.d_now, r.d_prev, d_delta),
             (r.away_team,     r.a_now, r.a_prev, a_delta),
         ]:
-            if abs(delta) > 0.08:
+            if abs(delta) > 0.15:
                 arrow = "▼" if delta < 0 else "▲"
                 note  = " ← Geld fliesst rein" if delta < 0 else " ← driftet weg"
                 lines.append(
