@@ -141,6 +141,7 @@ DATENQUELLEN IN DER DATENBANK
   → Wenn aktuelle Quote tiefer als Eröffnungsquote: Geld fliesst auf dieses Ergebnis (bullish).
   → Wenn aktuelle Quote höher als Eröffnungsquote: Markt hat Vertrauen verloren (bearish).
   → Starke Bewegung (>5 Rappen) = informiertes Geld bewegt den Markt → starkes Zusatzsignal.
+  → Für den vollständigen zeitlichen Verlauf: get_odds_history(fixture_id) verwenden.
 
   Markt-Qualität:
   - margin_avg: Bookmaker-Margin. <0.05 = sicherer Markt. >0.09 = unsicher, Upset möglich.
@@ -236,6 +237,15 @@ VERFÜGBARE TOOLS
    → Liefert: Spiele, Siege/Unentschieden/Niederlagen, Tore, Gegentore, Schüsse, Ballbesitz, Pässe, Paraden, Fouls.
    → Verwende dieses Tool wenn ein Team bereits WM-Spiele absolviert hat — zeigt die echte Turnierform.
    → Parameter: team_name, season (default: 2026)
+
+10. get_odds_history
+   → Zeitlicher Quoten-Verlauf (alle Snapshots) für ein konkretes Fixture.
+   → Liefert: recorded_at, home_odds, draw_odds, away_odds — chronologisch sortiert.
+   → Verwenden wenn: nach Quotenbewegungen gefragt wird, ob "informiertes Geld" fliesst,
+     ob sich der Markt seit Öffnung stark verändert hat, oder ob Sharp Money sichtbar ist.
+   → Interpretation: Sinkende Quote = Geld fliesst rein. Steigende Quote = Vertrauen schwindet.
+     Schnelle Bewegung kurz vor Anpfiff = Aufstellungs- oder Verletzungsinfo eingepreist.
+   → Parameter: fixture_id (zwingend), limit (Standard 20)
 
 6. get_head_to_head
    → Historische Direktvergleiche zweier Teams.

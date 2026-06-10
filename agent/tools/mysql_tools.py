@@ -702,6 +702,8 @@ def get_fixture_with_prediction(fixture_id: int) -> str:
         -- Sharp References
         p.home_odds_pinnacle, p.draw_odds_pinnacle, p.away_odds_pinnacle,
         p.home_odds_betfair,  p.draw_odds_betfair,  p.away_odds_betfair,
+        -- Eröffnungsquoten (Vergleich → Bewegung erkennbar)
+        p.home_odds_open, p.draw_odds_open, p.away_odds_open,
         -- Markt-Qualität
         p.margin_avg, p.margin_min, p.margin_max,
         p.odds_bookmaker_count, p.market_confidence,
@@ -731,10 +733,6 @@ TOOL_GET_FIXTURE_WITH_PREDICTION = {
     },
 }
 
-
-# -----------------------------------------------------------------------------
-# Tool Registry
-# -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # Tool 11: get_tournament_team_summary
@@ -815,6 +813,59 @@ TOOL_GET_TOURNAMENT_TEAM_SUMMARY = {
 }
 
 
+# -----------------------------------------------------------------------------
+# Tool 12: get_odds_history
+# -----------------------------------------------------------------------------
+
+
+def get_odds_history(fixture_id: int, limit: int = 20) -> str:
+    """Quoten-Verlaufshistorie für ein Fixture aus odds_history."""
+    limit = min(int(limit), 100)
+    sql = """
+    SELECT
+        oh.recorded_at,
+        oh.home_odds,
+        oh.draw_odds,
+        oh.away_odds,
+        tf.home_team,
+        tf.away_team
+    FROM odds_history oh
+    JOIN tournament_fixtures tf ON tf.fixture_id = oh.fixture_id
+    WHERE oh.fixture_id = :fixture_id
+    ORDER BY oh.recorded_at ASC
+    LIMIT :limit
+    """
+    return query_to_json(sql, {"fixture_id": fixture_id, "limit": limit})
+
+
+TOOL_GET_ODDS_HISTORY = {
+    "name": "get_odds_history",
+    "description": (
+        "Holt den zeitlichen Quoten-Verlauf (Snapshots) für ein konkretes Fixture aus odds_history. "
+        "Zeigt wie sich home_odds, draw_odds und away_odds über die Zeit entwickelt haben. "
+        "Verwenden wenn nach Quotenbewegungen, Markttrend oder Sharp-Money-Signalen gefragt wird. "
+        "Sinkende Quote = Geld fliesst rein (Favorit wird stärker). "
+        "Steigende Quote = Markt verliert Vertrauen. "
+        "Benötigt fixture_id — zuerst get_tournament_fixtures aufrufen."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "fixture_id": {
+                "type": "integer",
+                "description": "Fixture-ID des Spiels.",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximale Anzahl Snapshots. Standard 20, Maximum 100.",
+                "default": 20,
+            },
+        },
+        "required": ["fixture_id"],
+    },
+}
+
+
 ALL_TOOLS = [
     TOOL_GET_TEAM_MATCHES,
     TOOL_GET_TEAM_STATS,
@@ -827,6 +878,7 @@ ALL_TOOLS = [
     TOOL_GET_API_PREDICTIONS,
     TOOL_GET_FIXTURE_WITH_PREDICTION,
     TOOL_GET_TOURNAMENT_TEAM_SUMMARY,
+    TOOL_GET_ODDS_HISTORY,
 ]
 
 TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
@@ -841,6 +893,7 @@ TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
     "get_api_predictions": get_api_predictions,
     "get_fixture_with_prediction": get_fixture_with_prediction,
     "get_tournament_team_summary": get_tournament_team_summary,
+    "get_odds_history": get_odds_history,
 }
 
 
