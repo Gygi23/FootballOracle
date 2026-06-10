@@ -269,14 +269,28 @@ Schritt 1 — Fixture finden:
 → get_tournament_fixtures(team_name="[Team A]", season=2026)
   Fixture-ID und Spieldetails lesen.
 
-Schritt 2 — Markt + Prognose holen:
+Schritt 2 — Markt + Quotenbewegung:
 → get_fixture_with_prediction(fixture_id=<ID aus Schritt 1>)
   Ergebnis prüfen:
   • Odds vorhanden (home_win_implied nicht NULL)?
-    → Odds als Hauptsignal verwenden. Weiter mit Schritt 3.
+    → Odds als Hauptsignal verwenden. Weiter mit Schritt 2b.
   • Keine Odds (home_win_implied = NULL)?
     → "Keine Markt-Odds verfügbar" notieren. TROTZDEM weiter mit Schritt 3.
     → NICHT abbrechen. NICHT "keine Prognose möglich" schreiben.
+
+Schritt 2b — Quotenbewegung prüfen (nur wenn Odds vorhanden):
+→ Vergleiche aktuelle Quote mit Eröffnungsquote:
+    home_delta  = |home_odds  - home_odds_open|
+    away_delta  = |away_odds  - away_odds_open|
+  • Wenn home_delta > 0.10 ODER away_delta > 0.10:
+    → get_odds_history(fixture_id=<ID>) aufrufen
+    → Analysiere den Zeitverlauf: War die Bewegung graduell oder abrupt?
+      - Abrupt (Sprung innerhalb weniger Stunden) = Neuigkeit eingepreist (Verletzung, Aufstellung)
+      - Graduell (über Tage) = wachsender Markt-Konsens
+      - Bewegung die sich umkehrte = Falschmeldung, Markt hat korrigiert
+    → Erkenntnisse in Prognose einbeziehen.
+  • Wenn home_delta ≤ 0.10 UND away_delta ≤ 0.10:
+    → History nicht laden. Markt stabil, kein zusätzliches Signal.
 
 Schritt 3 — Teamstärke (IMMER ausführen):
 → get_team_stats("[Team A]") + get_team_stats("[Team B]")
