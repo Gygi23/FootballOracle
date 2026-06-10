@@ -146,12 +146,12 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
 
 async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
     """
-    Starke Quoten-Bewegungen melden — vergleicht die letzten ZWEI Snapshots
-    in odds_history (nicht Eröffnung vs. heute).
+    Starke Quoten-Bewegungen melden — vergleicht die letzten ZWEI Snapshots.
 
-    Vorteil: Meldet nur echte neue Bewegungen (z.B. Verletzungsmeldung 2h vor Anpfiff),
-    nicht dauerhaft denselben kumulierten Drift seit Marktöffnung.
-    Schwelle: > 0.10 Differenz zwischen letztem und vorletztem Snapshot.
+    Schwellen (abgestuft nach Zeitnähe zum Anpfiff):
+      < 24h vor Anpfiff  → Bewegung > 0.10  (empfindlich — Aufstellung/Verletzung)
+      24h–48h vorher     → Bewegung > 0.20  (nur klare Signale)
+      > 48h vorher       → keine Benachrichtigung (Markt-Rauschen)
     """
     if not OWNER_CHAT_ID:
         return
@@ -173,16 +173,24 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
                 tf.home_team, tf.away_team, tf.match_date, tf.stage,
                 r1.home_odds  AS h_now,  r1.draw_odds  AS d_now,  r1.away_odds  AS a_now,
                 r2.home_odds  AS h_prev, r2.draw_odds  AS d_prev, r2.away_odds  AS a_prev,
-                r1.recorded_at AS snapshot_at
+                r1.recorded_at AS snapshot_at,
+                TIMESTAMPDIFF(HOUR, NOW(), tf.match_date) AS hours_to_kickoff
             FROM tournament_fixtures tf
             JOIN ranked r1 ON r1.fixture_id = tf.fixture_id AND r1.rn = 1
             JOIN ranked r2 ON r2.fixture_id = tf.fixture_id AND r2.rn = 2
             WHERE tf.season = 2026
               AND tf.status = 'NS'
-              AND tf.match_date > NOW()
+              AND tf.match_date BETWEEN NOW() AND NOW() + INTERVAL 48 HOUR
               AND (
-                  ABS(r1.home_odds - r2.home_odds)  > 0.10
-                  OR ABS(r1.away_odds - r2.away_odds) > 0.10
+                  -- < 24h: Schwelle 0.10
+                  (TIMESTAMPDIFF(HOUR, NOW(), tf.match_date) < 24
+                   AND (ABS(r1.home_odds - r2.home_odds) > 0.10
+                        OR ABS(r1.away_odds - r2.away_odds) > 0.10))
+                  OR
+                  -- 24–48h: Schwelle 0.20 (nur starke Signale)
+                  (TIMESTAMPDIFF(HOUR, NOW(), tf.match_date) BETWEEN 24 AND 48
+                   AND (ABS(r1.home_odds - r2.home_odds) > 0.20
+                        OR ABS(r1.away_odds - r2.away_odds) > 0.20))
               )
             ORDER BY tf.match_date
         """)).fetchall()
@@ -191,18 +199,20 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
         h_delta = float(r.h_now  or 0) - float(r.h_prev or 0)
         d_delta = float(r.d_now  or 0) - float(r.d_prev or 0)
         a_delta = float(r.a_now  or 0) - float(r.a_prev or 0)
+        hours   = int(r.hours_to_kickoff or 0)
 
-        time_str = r.match_date.strftime("%d.%m. %H:%M") if r.match_date else "?"
+        time_str  = r.match_date.strftime("%d.%m. %H:%M") if r.match_date else "?"
+        timing    = f"in {hours}h" if hours < 24 else f"in {hours//24}d {hours%24}h"
 
         lines = [f"📊 *Quotenbewegung* — {r.home_team} vs {r.away_team}",
-                 f"{time_str} Uhr  ·  {r.stage}\n"]
+                 f"{time_str} Uhr · {r.stage} · Anpfiff {timing}\n"]
 
         for team, now, prev, delta in [
-            (r.home_team,    r.h_now, r.h_prev, h_delta),
+            (r.home_team,     r.h_now, r.h_prev, h_delta),
             ("Unentschieden", r.d_now, r.d_prev, d_delta),
-            (r.away_team,    r.a_now, r.a_prev, a_delta),
+            (r.away_team,     r.a_now, r.a_prev, a_delta),
         ]:
-            if abs(delta) > 0.05:
+            if abs(delta) > 0.08:
                 arrow = "▼" if delta < 0 else "▲"
                 note  = " ← Geld fliesst rein" if delta < 0 else " ← driftet weg"
                 lines.append(
