@@ -38,8 +38,7 @@ Ein KI-gestütztes Analyse-System für die FIFA Weltmeisterschaft 2026. Kombinie
 ### Datenquellen
 | Quelle | Inhalt |
 |---|---|
-| API-Football (api-sports.io) | Live-Fixtures, Statistiken, Standings, Predictions |
-| Buchmacher-API | Quoten von Pinnacle, Betfair + Konsens (8 Bookmaker) |
+| API-Football (api-sports.io) | Live-Fixtures, Statistiken, Standings, Predictions, Quoten von Pinnacle, Betfair + Konsens (8 Bookmaker) |
 | Kaggle-Datensatz | 15.000+ historische Länderspiele (Basis für ELO + KPIs) |
 | FIFA-Ranking CSV | Aktuelle FIFA-Weltrangliste |
 
