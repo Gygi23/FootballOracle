@@ -212,6 +212,7 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
             WHERE tf.season = 2026
               AND tf.status = 'NS'
               AND tf.match_date BETWEEN NOW() AND NOW() + INTERVAL 24 HOUR
+              AND r1.recorded_at > NOW() - INTERVAL 20 MINUTE
               AND (
                   ABS(r1.home_odds - r2.home_odds)  > 0.25
                   OR ABS(r1.away_odds - r2.away_odds) > 0.25
