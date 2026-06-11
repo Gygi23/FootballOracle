@@ -17,6 +17,8 @@ Setup:
 
 import logging
 import os
+from datetime import timezone
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -36,6 +38,16 @@ logger = logging.getLogger(__name__)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_CHAT_ID  = int(os.getenv("TELEGRAM_CHAT_ID", "0"))
+_DISPLAY_TZ    = ZoneInfo(os.getenv("TIMEZONE", "Europe/Zurich"))
+
+
+def _to_local(dt) -> str:
+    """UTC-Datetime → lokale Uhrzeit als HH:MM String."""
+    if dt is None:
+        return "?"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_DISPLAY_TZ).strftime("%H:%M")
 
 # Whitelist: erlaubte Chat-IDs (kommagetrennt in ALLOWED_CHAT_IDS)
 # Wenn nicht gesetzt → nur OWNER_CHAT_ID hat Zugriff
@@ -129,7 +141,7 @@ async def cmd_heute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     lines = ["⚽ *Heutige Spiele:*\n"]
     for r in rows:
-        time_str = r.match_date.strftime("%H:%M") if r.match_date else "?"
+        time_str = _to_local(r.match_date)
         if r.status in ("FT", "AET", "PEN"):
             score = f"{r.home_score}:{r.away_score} ✅"
         elif r.status in ("1H", "2H", "HT", "ET", "LIVE"):

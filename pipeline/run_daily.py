@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import requests
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import text
 from dotenv import load_dotenv
 from odds_extractor import fetch_upcoming_odds
@@ -25,6 +25,12 @@ CALL_LIMIT = 7500
 LOOKAHEAD_DAYS = 3  # Predictions + Odds für nächste 3 Tage
 
 engine = get_engine()
+
+
+def parse_utc(date_str: str):
+    """ISO-Datumsstring → naive UTC datetime (verhindert Zeitzonenkonvertierung durch SQLAlchemy)."""
+    dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 # ─── API Call Tracker ─────────────────────────────────────────────────────────
@@ -208,7 +214,7 @@ def ensure_upcoming_fixtures():
                 "season":     SEASON,
                 "home_team":  fx["teams"]["home"]["name"],
                 "away_team":  fx["teams"]["away"]["name"],
-                "match_date": fx["fixture"]["date"],
+                "match_date": parse_utc(fx["fixture"]["date"]),
                 "stage":      fx["league"].get("round", ""),
                 "status":     fx["fixture"]["status"]["short"],
             })

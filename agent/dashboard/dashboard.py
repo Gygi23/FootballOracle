@@ -7,7 +7,25 @@ load_dotenv()
 
 import streamlit as st
 import streamlit.components.v1 as components
-from datetime import date
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
+
+_DISPLAY_TZ = ZoneInfo(os.getenv("TIMEZONE", "Europe/Zurich"))
+
+
+def _fmt_local(match_date) -> str:
+    """UTC-Datetime aus DB → lokale Anzeigezeit (z.B. MESZ)."""
+    if match_date is None:
+        return "?"
+    if isinstance(match_date, str):
+        match_date = match_date[:16].replace("T", " ")
+        try:
+            match_date = datetime.fromisoformat(match_date)
+        except ValueError:
+            return match_date
+    if match_date.tzinfo is None:
+        match_date = match_date.replace(tzinfo=timezone.utc)
+    return match_date.astimezone(_DISPLAY_TZ).strftime("%d.%m. %H:%M")
 
 st.set_page_config(
     page_title="football Orakel – WM 2026",
@@ -716,7 +734,7 @@ def build_match_card_label(
     else:
         mid = "vs"
 
-    dt = str(match_date)[:16].replace("T", " ")
+    dt = _fmt_local(match_date)
     prefix = f"{group}  ·  " if group else ""
     return f"{home}  {mid}  {away}   —   {prefix}{stage}  ·  {dt}"
 
