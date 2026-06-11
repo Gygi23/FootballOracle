@@ -144,7 +144,7 @@ def update_standings():
 def update_today_fixtures():
     """Scores, Status und Spielstatistiken heutiger Spiele updaten."""
     print("Heutige Fixtures updaten...")
-    today = date.today().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
 
     data = api_get("fixtures", {
         "league": LEAGUE_ID,

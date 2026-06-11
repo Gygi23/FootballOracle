@@ -18,16 +18,22 @@ load_dotenv()
 # -----------------------------------------------------------------------------
 
 
+_engine: Engine | None = None
+
+
 def get_engine() -> Engine:
-    db_url = os.getenv("DATABASE_URL")
-    if not db_url:
-        host     = os.getenv("DB_HOST", "localhost")
-        port     = os.getenv("DB_PORT", "3306")
-        user     = os.getenv("DB_USER", "root")
-        password = os.getenv("DB_PASSWORD", "")
-        name     = os.getenv("DB_NAME", "footballAI")
-        db_url   = f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}"
-    return create_engine(db_url, pool_pre_ping=True)
+    global _engine
+    if _engine is None:
+        db_url = os.getenv("DATABASE_URL")
+        if not db_url:
+            host     = os.getenv("DB_HOST", "localhost")
+            port     = os.getenv("DB_PORT", "3306")
+            user     = os.getenv("DB_USER", "root")
+            password = os.getenv("DB_PASSWORD", "")
+            name     = os.getenv("DB_NAME", "footballAI")
+            db_url   = f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}"
+        _engine = create_engine(db_url, pool_pre_ping=True, pool_size=5, max_overflow=10)
+    return _engine
 
 
 DEFAULT_ERROR_RESULT = {"result": [], "count": 0}

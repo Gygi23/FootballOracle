@@ -98,7 +98,7 @@ def get_live_fixture_ids() -> list[int]:
     data = api_get("fixtures", {
         "league": LEAGUE_ID,
         "season": SEASON,
-        "status": "1H-HT-2H-ET-P-BT"
+        "status": "1H-HT-2H-ET-P-BT-INT-LIVE"
     })
     if not data:
         return []
@@ -111,88 +111,84 @@ def is_match_day() -> bool:
 
 def update_fixture(fixture: dict):
     """Updated tournament_fixtures mit aktuellem Stand."""
-    fid = fixture["fixture"]["id"]
+    fid   = fixture["fixture"]["id"]
     stats = fixture.get("statistics", [])
- 
-    row = {
-        "fixture_id":              fid,
-        "status":                  fixture["fixture"]["status"]["short"],
-        "home_score":              fixture["goals"]["home"],
-        "away_score":              fixture["goals"]["away"],
-        "home_possession":         get_stat(stats, 0, "Ball Possession"),
-        "away_possession":         get_stat(stats, 1, "Ball Possession"),
-        "home_shots_on_target":    get_stat(stats, 0, "Shots on Goal"),
-        "away_shots_on_target":    get_stat(stats, 1, "Shots on Goal"),
-        "home_shots_off_target":   get_stat(stats, 0, "Shots off Goal"),
-        "away_shots_off_target":   get_stat(stats, 1, "Shots off Goal"),
-        "home_total_shots":        get_stat(stats, 0, "Total Shots"),
-        "away_total_shots":        get_stat(stats, 1, "Total Shots"),
-        "home_blocked_shots":      get_stat(stats, 0, "Blocked Shots"),
-        "away_blocked_shots":      get_stat(stats, 1, "Blocked Shots"),
-        "home_shots_insidebox":    get_stat(stats, 0, "Shots insidebox"),
-        "away_shots_insidebox":    get_stat(stats, 1, "Shots insidebox"),
-        "home_shots_outsidebox":   get_stat(stats, 0, "Shots outsidebox"),
-        "away_shots_outsidebox":   get_stat(stats, 1, "Shots outsidebox"),
-        "home_saves":              get_stat(stats, 0, "Goalkeeper Saves"),
-        "away_saves":              get_stat(stats, 1, "Goalkeeper Saves"),
-        "home_fouls":              get_stat(stats, 0, "Fouls"),
-        "away_fouls":              get_stat(stats, 1, "Fouls"),
-        "home_corners":            get_stat(stats, 0, "Corner Kicks"),
-        "away_corners":            get_stat(stats, 1, "Corner Kicks"),
-        "home_offsides":           get_stat(stats, 0, "Offsides"),
-        "away_offsides":           get_stat(stats, 1, "Offsides"),
-        "home_yellow_cards":       get_stat(stats, 0, "Yellow Cards"),
-        "away_yellow_cards":       get_stat(stats, 1, "Yellow Cards"),
-        "home_red_cards":          get_stat(stats, 0, "Red Cards"),
-        "away_red_cards":          get_stat(stats, 1, "Red Cards"),
-        "home_total_passes":       get_stat(stats, 0, "Total passes"),
-        "away_total_passes":       get_stat(stats, 1, "Total passes"),
-        "home_passes_accurate":    get_stat(stats, 0, "Passes accurate"),
-        "away_passes_accurate":    get_stat(stats, 1, "Passes accurate"),
-        "home_passes_pct":         get_stat(stats, 0, "Passes %"),
-        "away_passes_pct":         get_stat(stats, 1, "Passes %"),
+    has_stats = len(stats) >= 2  # API hat Statistiken geliefert
+
+    base = {
+        "fixture_id": fid,
+        "status":     fixture["fixture"]["status"]["short"],
+        "home_score": fixture["goals"]["home"],
+        "away_score": fixture["goals"]["away"],
     }
- 
+
     with engine.connect() as conn:
-        conn.execute(text("""
-            UPDATE tournament_fixtures SET
-                status = :status,
-                home_score = :home_score,
-                away_score = :away_score,
-                home_possession = :home_possession,
-                away_possession = :away_possession,
-                home_shots_on_target = :home_shots_on_target,
-                away_shots_on_target = :away_shots_on_target,
-                home_shots_off_target = :home_shots_off_target,
-                away_shots_off_target = :away_shots_off_target,
-                home_total_shots = :home_total_shots,
-                away_total_shots = :away_total_shots,
-                home_blocked_shots = :home_blocked_shots,
-                away_blocked_shots = :away_blocked_shots,
-                home_shots_insidebox = :home_shots_insidebox,
-                away_shots_insidebox = :away_shots_insidebox,
-                home_shots_outsidebox = :home_shots_outsidebox,
-                away_shots_outsidebox = :away_shots_outsidebox,
-                home_saves = :home_saves,
-                away_saves = :away_saves,
-                home_fouls = :home_fouls,
-                away_fouls = :away_fouls,
-                home_corners = :home_corners,
-                away_corners = :away_corners,
-                home_offsides = :home_offsides,
-                away_offsides = :away_offsides,
-                home_yellow_cards = :home_yellow_cards,
-                away_yellow_cards = :away_yellow_cards,
-                home_red_cards = :home_red_cards,
-                away_red_cards = :away_red_cards,
-                home_total_passes = :home_total_passes,
-                away_total_passes = :away_total_passes,
-                home_passes_accurate = :home_passes_accurate,
-                away_passes_accurate = :away_passes_accurate,
-                home_passes_pct = :home_passes_pct,
-                away_passes_pct = :away_passes_pct
-            WHERE fixture_id = :fixture_id
-        """), row)
+        if has_stats:
+            # Vollständiges Update inkl. Statistiken
+            row = {
+                **base,
+                "home_possession":         get_stat(stats, 0, "Ball Possession"),
+                "away_possession":         get_stat(stats, 1, "Ball Possession"),
+                "home_shots_on_target":    get_stat(stats, 0, "Shots on Goal"),
+                "away_shots_on_target":    get_stat(stats, 1, "Shots on Goal"),
+                "home_shots_off_target":   get_stat(stats, 0, "Shots off Goal"),
+                "away_shots_off_target":   get_stat(stats, 1, "Shots off Goal"),
+                "home_total_shots":        get_stat(stats, 0, "Total Shots"),
+                "away_total_shots":        get_stat(stats, 1, "Total Shots"),
+                "home_blocked_shots":      get_stat(stats, 0, "Blocked Shots"),
+                "away_blocked_shots":      get_stat(stats, 1, "Blocked Shots"),
+                "home_shots_insidebox":    get_stat(stats, 0, "Shots insidebox"),
+                "away_shots_insidebox":    get_stat(stats, 1, "Shots insidebox"),
+                "home_shots_outsidebox":   get_stat(stats, 0, "Shots outsidebox"),
+                "away_shots_outsidebox":   get_stat(stats, 1, "Shots outsidebox"),
+                "home_saves":              get_stat(stats, 0, "Goalkeeper Saves"),
+                "away_saves":              get_stat(stats, 1, "Goalkeeper Saves"),
+                "home_fouls":              get_stat(stats, 0, "Fouls"),
+                "away_fouls":              get_stat(stats, 1, "Fouls"),
+                "home_corners":            get_stat(stats, 0, "Corner Kicks"),
+                "away_corners":            get_stat(stats, 1, "Corner Kicks"),
+                "home_offsides":           get_stat(stats, 0, "Offsides"),
+                "away_offsides":           get_stat(stats, 1, "Offsides"),
+                "home_yellow_cards":       get_stat(stats, 0, "Yellow Cards"),
+                "away_yellow_cards":       get_stat(stats, 1, "Yellow Cards"),
+                "home_red_cards":          get_stat(stats, 0, "Red Cards"),
+                "away_red_cards":          get_stat(stats, 1, "Red Cards"),
+                "home_total_passes":       get_stat(stats, 0, "Total passes"),
+                "away_total_passes":       get_stat(stats, 1, "Total passes"),
+                "home_passes_accurate":    get_stat(stats, 0, "Passes accurate"),
+                "away_passes_accurate":    get_stat(stats, 1, "Passes accurate"),
+                "home_passes_pct":         get_stat(stats, 0, "Passes %"),
+                "away_passes_pct":         get_stat(stats, 1, "Passes %"),
+            }
+            conn.execute(text("""
+                UPDATE tournament_fixtures SET
+                    status = :status,
+                    home_score = :home_score, away_score = :away_score,
+                    home_possession = :home_possession, away_possession = :away_possession,
+                    home_shots_on_target = :home_shots_on_target, away_shots_on_target = :away_shots_on_target,
+                    home_shots_off_target = :home_shots_off_target, away_shots_off_target = :away_shots_off_target,
+                    home_total_shots = :home_total_shots, away_total_shots = :away_total_shots,
+                    home_blocked_shots = :home_blocked_shots, away_blocked_shots = :away_blocked_shots,
+                    home_shots_insidebox = :home_shots_insidebox, away_shots_insidebox = :away_shots_insidebox,
+                    home_shots_outsidebox = :home_shots_outsidebox, away_shots_outsidebox = :away_shots_outsidebox,
+                    home_saves = :home_saves, away_saves = :away_saves,
+                    home_fouls = :home_fouls, away_fouls = :away_fouls,
+                    home_corners = :home_corners, away_corners = :away_corners,
+                    home_offsides = :home_offsides, away_offsides = :away_offsides,
+                    home_yellow_cards = :home_yellow_cards, away_yellow_cards = :away_yellow_cards,
+                    home_red_cards = :home_red_cards, away_red_cards = :away_red_cards,
+                    home_total_passes = :home_total_passes, away_total_passes = :away_total_passes,
+                    home_passes_accurate = :home_passes_accurate, away_passes_accurate = :away_passes_accurate,
+                    home_passes_pct = :home_passes_pct, away_passes_pct = :away_passes_pct
+                WHERE fixture_id = :fixture_id
+            """), row)
+        else:
+            # Keine Statistiken von API → nur Status + Score aktualisieren, bestehende Stats behalten
+            conn.execute(text("""
+                UPDATE tournament_fixtures
+                SET status = :status, home_score = :home_score, away_score = :away_score
+                WHERE fixture_id = :fixture_id
+            """), base)
         conn.commit()
  
  
@@ -245,7 +241,7 @@ def save_snapshot(fixture: dict):
  
     with engine.connect() as conn:
         conn.execute(text("""
-            INSERT INTO fixture_snapshots (
+            INSERT IGNORE INTO fixture_snapshots (
                 fixture_id, minute, home_team, away_team,
                 home_score, away_score,
                 home_possession, away_possession,
@@ -347,9 +343,51 @@ def update_standings():
 
 # live update
 
+def get_db_live_fixture_ids() -> list[int]:
+    """Fixtures die in der DB noch als live markiert sind (können inzwischen FT sein)."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT fixture_id FROM tournament_fixtures
+            WHERE season = :season AND league_id = :league
+              AND status IN ('1H','HT','2H','ET','BT','P','INT','LIVE')
+        """), {"season": SEASON, "league": LEAGUE_ID}).fetchall()
+    return [r[0] for r in rows]
+
+
 def run_live_update(last_snapshot_time: datetime) -> datetime:
     fixture_ids = get_live_fixture_ids()
+
     if not fixture_ids:
+        # API gibt keine Live-Spiele mehr zurück → prüfen ob DB-Live-Spiele auf FT gesetzt werden müssen
+        db_live = get_db_live_fixture_ids()
+        if db_live:
+            print(f"  Kein Live-Feed mehr, prüfe {len(db_live)} DB-Live-Spiel(e) auf Spielende...")
+            ids_str = "-".join(str(fid) for fid in db_live)
+            data = api_get("fixtures", {"ids": ids_str})
+            if data:
+                game_ended = False
+                for fixture in data.get("response", []):
+                    update_fixture(fixture)
+                    status = fixture["fixture"]["status"]["short"]
+                    home   = fixture["teams"]["home"]["name"]
+                    away   = fixture["teams"]["away"]["name"]
+                    print(f"  {home} vs {away}: {status}")
+                    if status in ("FT", "AET", "PEN"):
+                        game_ended = True
+
+                if game_ended:
+                    update_standings()
+                    # KPIs + ELO sofort nachziehen
+                    try:
+                        import sys, os
+                        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+                        from compute_kpis import run as update_kpis
+                        from compute_elo  import run as update_elo
+                        update_kpis()
+                        update_elo()
+                        print("  KPIs + ELO aktualisiert.")
+                    except Exception as e:
+                        print(f"  KPI/ELO-Update fehlgeschlagen: {e}")
         return last_snapshot_time
 
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {len(fixture_ids)} Live-Spiel(e)")
@@ -398,23 +436,27 @@ def main():
     print("footballAI – fetch_live.py gestartet")
     print(f"Calls heute: {get_calls_today()}/{CALL_LIMIT}\n")
  
-    last_snapshot_time = datetime.now() - timedelta(seconds=SNAPSHOT_INTERVAL)
- 
+    from datetime import timezone as _tz
+    last_snapshot_time = datetime.now(_tz.utc) - timedelta(seconds=SNAPSHOT_INTERVAL)
+
     while True:
         # Läuft gerade ein Spiel?
         if is_match_day():
             last_snapshot_time = run_live_update(last_snapshot_time)
             time.sleep(POLL_INTERVAL)
             continue
- 
+
         # Wann ist der nächste Anpfiff?
         next_kickoff = get_next_kickoff()
         if not next_kickoff:
             print("Keine weiteren WM 2026 Spiele — fertig.")
             break
- 
+
         # Warten bis 2 Minuten vor Anpfiff
-        wait_seconds = (next_kickoff - datetime.now()).total_seconds() - 120
+        now_utc = datetime.now(_tz.utc).replace(tzinfo=None)  # naive UTC für DB-Vergleich
+        if next_kickoff.tzinfo is not None:
+            next_kickoff = next_kickoff.replace(tzinfo=None)
+        wait_seconds = (next_kickoff - now_utc).total_seconds() - 120
         if wait_seconds > 60:
             wake_time = next_kickoff - timedelta(seconds=120)
             print(f"Nächstes Spiel: {next_kickoff.strftime('%d.%m. %H:%M')} "

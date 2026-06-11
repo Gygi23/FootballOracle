@@ -120,7 +120,7 @@ def get_just_finished_fixtures() -> list[dict]:
 
 
 def get_last_run_time(endpoint: str) -> datetime:
-    """Letzten Ausführungszeitpunkt aus api_log lesen."""
+    """Letzten Ausführungszeitpunkt aus api_log lesen (immer naive UTC)."""
     with engine.connect() as conn:
         row = conn.execute(text("""
             SELECT last_called FROM api_log
@@ -129,12 +129,12 @@ def get_last_run_time(endpoint: str) -> datetime:
         """), {"ep": endpoint}).fetchone()
     if row:
         ts = row[0]
-        # Naive datetime → UTC-aware machen
-        if isinstance(ts, datetime) and ts.tzinfo is None:
-            return ts.replace(tzinfo=timezone.utc)
+        # Immer naive datetime zurückgeben (DB speichert naive UTC)
+        if isinstance(ts, datetime):
+            return ts.replace(tzinfo=None)
         return ts
-    # Noch nie gelaufen → sehr alter Zeitpunkt
-    return datetime(2000, 1, 1, tzinfo=timezone.utc)
+    # Noch nie gelaufen → sehr alter Zeitpunkt (naive)
+    return datetime(2000, 1, 1)
 
 
 def log_run(endpoint: str):
@@ -149,10 +149,8 @@ def log_run(endpoint: str):
 
 
 def hours_since_last_full_run() -> float:
-    last = get_last_run_time('full_pipeline')
-    now  = datetime.now(timezone.utc)
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=timezone.utc)
+    last = get_last_run_time('full_pipeline')           # naive UTC
+    now  = datetime.now(timezone.utc).replace(tzinfo=None)  # auch naive UTC
     return (now - last).total_seconds() / 3600
 
 
@@ -235,19 +233,17 @@ def main():
         run_odds_refresh()
         return
 
-    # 4. Spiele in <2h? → Odds refresh (Markt öffnet sich)
+    # 4. Spiele in <2h? → Odds refresh (Markt öffnet sich), nur alle 30min
     kickoff_2h = get_upcoming_fixtures(within_minutes=120)
     if kickoff_2h and not live:
-        # Nur alle 30min updaten (nicht jeden 2min-Lauf)
-        last_odds = get_last_run_time('odds_refresh_2h')
-        if last_odds.tzinfo is None:
-            last_odds = last_odds.replace(tzinfo=timezone.utc)
-        if (now - last_odds).total_seconds() > 1800:  # 30min
+        last_odds = get_last_run_time('odds_refresh_2h')  # naive UTC
+        now_naive = now.replace(tzinfo=None)
+        if (now_naive - last_odds).total_seconds() > 1800:
             names = ', '.join(f"{f['home_team']} vs {f['away_team']}" for f in kickoff_2h)
             print(f"[smart] Anpfiff in <2h: {names} → Odds refresh")
             run_odds_refresh()
             log_run('odds_refresh_2h')
-        return
+            return  # nur return wenn tatsächlich ein Refresh lief
 
     # 5. Voller Run alle 4 Stunden (ruhige Phase)
     if not live and hours_since_last_full_run() >= FULL_UPDATE_INTERVAL_HOURS:

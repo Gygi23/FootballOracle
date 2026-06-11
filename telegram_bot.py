@@ -202,7 +202,7 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
             OWNER_CHAT_ID,
             f"🔔 *Spielstart in 30 Minuten*\n\n"
             f"⚽ {r.home_team} vs {r.away_team}\n"
-            f"🕐 {r.match_date.strftime('%H:%M')} Uhr · {r.stage}\n\n"
+            f"🕐 {_to_local(r.match_date)} Uhr · {r.stage}\n\n"
             f"_Analyse wird geladen..._",
             parse_mode="Markdown"
         )
@@ -287,7 +287,9 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
         a_delta = float(r.a_now  or 0) - float(r.a_prev or 0)
         hours   = int(r.hours_to_kickoff or 0)
 
-        time_str  = r.match_date.strftime("%d.%m. %H:%M") if r.match_date else "?"
+        time_str  = (r.match_date.replace(tzinfo=timezone.utc)
+                     .astimezone(_DISPLAY_TZ).strftime("%d.%m. %H:%M")
+                     if r.match_date else "?")
         timing    = f"in {hours}h" if hours < 24 else f"in {hours//24}d {hours%24}h"
 
         lines = [f"📊 *Quotenbewegung* — {r.home_team} vs {r.away_team}",
