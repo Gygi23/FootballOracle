@@ -872,14 +872,36 @@ TOOL_GET_ODDS_HISTORY = {
 
 
 def get_current_time() -> str:
-    """Gibt die aktuelle UTC-Zeit zurück."""
+    """Gibt aktuelle UTC-Zeit und lokale Zeit (konfigurierte Zeitzone) zurück."""
+    import os
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
-    return json_response({
-        "utc_now": now.strftime("%Y-%m-%d %H:%M:%S"),
-        "timezone": "UTC",
-        "note": "Alle match_date-Werte in der DB sind ebenfalls UTC."
-    })
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    now_utc = datetime.now(timezone.utc)
+    tz_name = os.getenv("TIMEZONE", "Europe/Zurich")
+
+    try:
+        local_tz = ZoneInfo(tz_name)
+        now_local = now_utc.astimezone(local_tz)
+        offset_h = int(now_local.utcoffset().total_seconds() // 3600)
+        offset_str = f"UTC+{offset_h}" if offset_h >= 0 else f"UTC{offset_h}"
+        return json_response({
+            "utc_now":   now_utc.strftime("%Y-%m-%d %H:%M:%S"),
+            "local_now": now_local.strftime("%Y-%m-%d %H:%M:%S"),
+            "timezone":  tz_name,
+            "utc_offset": offset_str,
+            "note": (
+                "match_date-Werte in der DB sind UTC. "
+                "Zeiten in Antworten immer als lokale Zeit (local_now) angeben, "
+                "z.B. '23:00 Uhr' statt '21:00 UTC'."
+            ),
+        })
+    except ZoneInfoNotFoundError:
+        return json_response({
+            "utc_now":  now_utc.strftime("%Y-%m-%d %H:%M:%S"),
+            "timezone": "UTC",
+            "note": f"Zeitzone '{tz_name}' nicht gefunden, UTC wird verwendet.",
+        })
 
 
 TOOL_GET_CURRENT_TIME = {

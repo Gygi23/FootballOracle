@@ -356,10 +356,12 @@ Bei JEDER Frage mit Zeitbezug ZUERST get_current_time() aufrufen:
 → "Was sind die nächsten Spiele?" / "Was steht heute an?"
 → "Was sind die Spiele morgen?" / "Was gibt es diese Woche?"
 
-Dann: get_tournament_fixtures(season=2026) → match_date mit UTC-Zeit vergleichen.
-Differenz in Minuten/Stunden berechnen und direkt nennen.
+Dann: get_tournament_fixtures(season=2026) → match_date (UTC) mit utc_now vergleichen.
+Differenz in Minuten/Stunden berechnen.
+Zeiten in der Antwort IMMER als lokale Zeit (local_now) ausgeben — NICHT als UTC.
 
-Beispiel: get_current_time() → 20:15 UTC, Spiel um 21:00 UTC → "in 45 Minuten"
+Beispiel: get_current_time() → utc_now=20:15, local_now=22:15, Spiel um 21:00 UTC
+→ "Das Spiel beginnt um 23:00 Uhr (in 45 Minuten)"
 
 ═══════════════════════════════════════════════════════════
 WEITERE BEISPIELE
