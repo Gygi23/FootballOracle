@@ -164,12 +164,14 @@ def run_scores_update():
 
 
 def run_post_game_update():
-    """Nach Spielende: Standings + KPIs aktualisieren."""
-    print("[smart] Post-Game-Update (Standings + KPIs)...")
+    """Nach Spielende: Standings + KPIs + ELO aktualisieren."""
+    print("[smart] Post-Game-Update (Standings + KPIs + ELO)...")
     from run_daily import update_standings
     from compute_kpis import run as update_kpis
+    from compute_elo import run as update_elo
     update_standings()
     update_kpis()
+    update_elo()
     log_run('kpi_update')
 
 
