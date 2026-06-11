@@ -16,6 +16,96 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ─── Passwortschutz ───────────────────────────────────────────────────────────
+
+_DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+
+if _DASHBOARD_PASSWORD:
+    if not st.session_state.get("authenticated"):
+        st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
+        html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
+        .stApp { background: #16213e !important; min-height: 100vh; }
+
+        /* Alle Streamlit-Chrome-Elemente verstecken */
+        header, footer, #MainMenu,
+        [data-testid="stHeader"],
+        [data-testid="stDecoration"],
+        [data-testid="stToolbar"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stAppDeployButton"] {
+            display: none !important;
+            height: 0 !important;
+            visibility: hidden !important;
+        }
+
+        /* Block-Container zentrieren */
+        .block-container {
+            max-width: 420px !important;
+            padding-top: 8rem !important;
+            margin: 0 auto !important;
+        }
+
+        /* Titel */
+        .login-title {
+            font-size: 1.7rem; font-weight: 700; color: #ffffff;
+            margin-bottom: 0.2rem;
+        }
+        .login-sub {
+            font-size: 0.82rem; color: #6b82a8; margin-bottom: 1.75rem;
+        }
+        .login-divider {
+            border: none; border-top: 1px solid rgba(255,255,255,0.08);
+            margin: 1.5rem 0;
+        }
+
+        /* Input */
+        .stTextInput > div > div > input {
+            background: #ffffff !important;
+            border: 1px solid rgba(255,255,255,0.14) !important;
+            border-radius: 10px !important;
+            color: #16213e !important;
+            font-size: 0.95rem !important;
+            padding: 0.65rem 0.9rem !important;
+            caret-color: #16213e !important;
+        }
+        .stTextInput > div > div > input::placeholder { color: #94a3b8 !important; }
+        .stTextInput > div > div > input:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.25) !important;
+        }
+
+        /* Button */
+        .stButton > button {
+            background: #2563eb !important;
+            color: #ffffff !important;
+            border: none !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            font-size: 0.95rem !important;
+            padding: 0.65rem !important;
+            width: 100% !important;
+            margin-top: 0.25rem;
+            transition: background 0.15s;
+        }
+        .stButton > button:hover { background: #1d4ed8 !important; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="login-title">⚽ footballOrakel</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-sub">FIFA World Cup 2026 · Analyse & Prognosen</div>', unsafe_allow_html=True)
+        pw = st.text_input("pw", type="password", placeholder="Passwort eingeben…", label_visibility="collapsed")
+        if st.button("Anmelden", use_container_width=True):
+            if pw == _DASHBOARD_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Falsches Passwort.")
+        st.stop()
+
+# ─── Styles ───────────────────────────────────────────────────────────────────
+
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
@@ -488,28 +578,31 @@ def wettmarkt_html(home: str, away: str, api_p: dict, is_finished: bool = False)
     h_short = (home[:15] + "…") if len(home) > 15 else home
     a_short = (away[:15] + "…") if len(away) > 15 else away
 
+    # Mitte des grauen Segments (in % der Gesamtbreite)
+    draw_center = hp + dp / 2
+
     prob_section = (
-        # Team labels above bar
-        f'<div style="display:flex;justify-content:space-between;align-items:baseline;'
-        f'font-size:0.7rem;font-weight:600;margin-bottom:5px;gap:6px">'
-        f'<span style="color:#16213e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-        f'{h_short}</span>'
-        f'<span style="color:#94a3b8;font-weight:400;font-size:0.65rem;white-space:nowrap;flex-shrink:0">'
-        f'Unentschieden</span>'
-        f'<span style="color:#dc6f5c;flex:1;text-align:right;overflow:hidden;'
-        f'text-overflow:ellipsis;white-space:nowrap">{a_short}</span>'
+        # Team labels + "Unentschieden" zentriert über dem grauen Balken
+        f'<div style="position:relative;height:1.3rem;margin-bottom:5px">'
+        f'<span style="position:absolute;left:0;font-size:0.7rem;font-weight:600;color:#16213e;'
+        f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%">{h_short}</span>'
+        f'<span style="position:absolute;left:{draw_center:.1f}%;transform:translateX(-50%);'
+        f'font-size:0.65rem;font-weight:400;color:#94a3b8;white-space:nowrap">Unentschieden</span>'
+        f'<span style="position:absolute;right:0;font-size:0.7rem;font-weight:600;color:#dc6f5c;'
+        f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:38%;text-align:right">{a_short}</span>'
         f'</div>'
-        # Bar — flex-grow proportional to probability
+        # Bar
         f'<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:5px">'
         f'<div style="flex:{hp};background:#16213e"></div>'
         f'<div style="flex:{dp};background:#94a3b8;margin:0 1px"></div>'
         f'<div style="flex:{ap};background:#dc6f5c"></div>'
         f'</div>'
-        # Percentage labels below bar
-        f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:12px">'
-        f'<span style="color:#16213e;font-weight:700">{hp}%</span>'
-        f'<span style="color:#94a3b8">{dp}%</span>'
-        f'<span style="color:#dc6f5c;font-weight:700">{ap}%</span>'
+        # Prozentwerte ebenfalls zentriert über dem jeweiligen Segment
+        f'<div style="position:relative;height:1.2rem;margin-bottom:12px">'
+        f'<span style="position:absolute;left:0;font-size:0.72rem;font-weight:700;color:#16213e">{hp}%</span>'
+        f'<span style="position:absolute;left:{draw_center:.1f}%;transform:translateX(-50%);'
+        f'font-size:0.72rem;color:#94a3b8">{dp}%</span>'
+        f'<span style="position:absolute;right:0;font-size:0.72rem;font-weight:700;color:#dc6f5c">{ap}%</span>'
         f'</div>'
     )
 
@@ -517,15 +610,16 @@ def wettmarkt_html(home: str, away: str, api_p: dict, is_finished: bool = False)
     def _fmt(v): return f"{v:.2f}" if v else "–"
 
     def _movement(current, opening):
-        """Pfeil + Farbe wenn Quote sich >2% bewegt hat."""
+        """Pfeil + Delta wenn Quote sich >0.03 bewegt hat."""
         if not current or not opening or abs(current - opening) < 0.03:
             return ""
+        delta = abs(current - opening)
         if current < opening:
-            # Quote gesunken = Team mehr favorisiert (shortenend)
-            return f'<span style="color:#15803d;font-size:0.6rem;margin-left:2px">▼{opening:.2f}</span>'
+            # Quote gesunken = Team mehr favorisiert
+            return f'<span style="color:#15803d;font-size:0.6rem;margin-left:3px">▼{delta:.2f}</span>'
         else:
-            # Quote gestiegen = Team weniger favorisiert (drifted)
-            return f'<span style="color:#dc2626;font-size:0.6rem;margin-left:2px">▲{opening:.2f}</span>'
+            # Quote gestiegen = Team weniger favorisiert
+            return f'<span style="color:#dc2626;font-size:0.6rem;margin-left:3px">▲{delta:.2f}</span>'
 
     def _row(label, ho, do_, ao, ho_open=None, do_open=None, ao_open=None):
         return (
