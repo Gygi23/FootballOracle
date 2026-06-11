@@ -50,13 +50,20 @@ LOG_ENDPOINT = 'smart_runner'
 # ─── DB-Abfragen (0 API Calls) ────────────────────────────────────────────────
 
 def get_live_fixtures() -> list[dict]:
-    """Spiele die gerade laufen (Status = live)."""
+    """Spiele die gerade laufen (Status = live) ODER deren Anpfiff laut Spielplan bereits war."""
     with engine.connect() as conn:
         rows = conn.execute(text("""
             SELECT fixture_id, home_team, away_team, status, match_date
             FROM tournament_fixtures
             WHERE league_id = :league AND season = :season
-              AND status IN ('1H','HT','2H','ET','BT','P','INT','LIVE')
+              AND (
+                -- Bereits im Live-Status in der DB
+                status IN ('1H','HT','2H','ET','BT','P','INT','LIVE')
+                -- ODER: Anpfiff war vor ≤110 Minuten, DB-Status noch NS
+                OR (status = 'NS'
+                    AND match_date < NOW()
+                    AND match_date > NOW() - INTERVAL 110 MINUTE)
+              )
         """), {"league": LEAGUE_ID, "season": SEASON}).fetchall()
     return [dict(r._mapping) for r in rows]
 

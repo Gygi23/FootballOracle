@@ -247,7 +247,7 @@ def load_live_fixtures():
     ))
     return r.get("result", [])
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def load_today_upcoming():
     from agent.tools.mysql_tools import get_tournament_fixtures
     import json
