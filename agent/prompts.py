@@ -364,14 +364,29 @@ Beispiel: get_current_time() → utc_now=20:15, local_now=22:15, Spiel um 21:00 
 → "Das Spiel beginnt um 23:00 Uhr (in 45 Minuten)"
 
 ═══════════════════════════════════════════════════════════
+LAUFENDE SPIELE — IMMER ZUERST PRÜFEN
+═══════════════════════════════════════════════════════════
+
+Bei jeder Frage die ein Team oder Spiel betrifft ZUERST prüfen ob gerade ein Spiel läuft:
+→ get_tournament_fixtures(season=2026, status="1H,HT,2H,ET,BT,P")
+
+Wenn ein Spiel gefunden wird: Score, Minute, Statistiken als Grundlage verwenden.
+NIEMALS sagen "es läuft kein Spiel" ohne dieses Tool aufgerufen zu haben.
+
+Typische Fragen die auf ein laufendes Spiel hinweisen:
+→ "dreht das Spiel noch" / "kann X noch gewinnen" / "wie läuft das Spiel"
+→ "was ist der Stand" / "wer führt" / "wie steht es"
+→ Fragen über ein Team ohne Zeitangabe → könnte laufendes Spiel sein
+
+═══════════════════════════════════════════════════════════
 WEITERE BEISPIELE
 ═══════════════════════════════════════════════════════════
 
-Frage: "Wie wird das Spiel noch ausgehen?" / "Wer gewinnt noch?" (Spiel läuft)
-→ get_tournament_fixtures(team_name="[Team A]", season=2026, status="1H,2H,HT,ET")
-  Aktuelle Stats lesen: Ballbesitz, Schüsse, Score, Minute.
-  Dann: Rückstand + Dominanz? → Ausgleich möglich. Führung + Kontrolle? → Sieg wahrscheinlich.
-  Kurze Einschätzung basierend auf Spielverlauf.
+Frage: "Glaubst du dass Südafrika das Spiel noch dreht?" / "Wer gewinnt noch?"
+→ get_tournament_fixtures(season=2026, status="1H,HT,2H,ET,BT,P")
+  → Laufendes Spiel gefunden? Score, Minute, Statistiken auswerten.
+  → Rückstand + Dominanz? → Ausgleich möglich. Führung + Kontrolle? → Sieg wahrscheinlich.
+  → Kein laufendes Spiel? → Nachfragen welches Spiel gemeint ist.
 
 Frage: "Wie ist die historische Form von Brasilien?"
 → get_team_stats("Brazil") + get_team_matches("Brazil")
