@@ -360,7 +360,10 @@ def run_live_update(last_snapshot_time: datetime) -> datetime:
         return last_snapshot_time
 
     fixtures = data.get("response", [])
-    now = datetime.now()
+    from datetime import timezone as _tz
+    now = datetime.now(_tz.utc)
+    if last_snapshot_time.tzinfo is None:
+        last_snapshot_time = last_snapshot_time.replace(tzinfo=_tz.utc)
     do_snapshot = (now - last_snapshot_time).total_seconds() >= SNAPSHOT_INTERVAL
     standings_updated = False
 
