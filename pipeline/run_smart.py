@@ -81,6 +81,22 @@ def get_upcoming_fixtures(within_minutes: int) -> list[dict]:
     return [dict(r._mapping) for r in rows]
 
 
+def get_missed_fixtures() -> list[dict]:
+    """
+    Spiele deren Anpfiff >115 Min zurückliegt aber Status noch NS ist.
+    → Passiert wenn der Cron während des Spiels nicht lief oder den Kickoff verpasst hat.
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT fixture_id, home_team, away_team, status, match_date
+            FROM tournament_fixtures
+            WHERE league_id = :league AND season = :season
+              AND status = 'NS'
+              AND match_date < NOW() - INTERVAL 115 MINUTE
+        """), {"league": LEAGUE_ID, "season": SEASON}).fetchall()
+    return [dict(r._mapping) for r in rows]
+
+
 def get_just_finished_fixtures() -> list[dict]:
     """
     Spiele die heute beendet wurden und deren KPIs noch nicht aktualisiert wurden.
@@ -187,6 +203,15 @@ def run_post_game_update():
 def main():
     now = datetime.now(timezone.utc)
     print(f"[smart] {now.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+
+    # 0. Verpasste Spiele: Anpfiff >115min her, DB-Status noch NS → Nachzug
+    missed = get_missed_fixtures()
+    if missed:
+        names = ', '.join(f"{f['home_team']} vs {f['away_team']}" for f in missed)
+        print(f"[smart] Verpasst (nie getrackt): {names} → Fixture-Update")
+        from run_daily import update_today_fixtures
+        update_today_fixtures()
+        run_post_game_update()
 
     # 1. Spiele gerade live? → Scores sofort updaten
     live = get_live_fixtures()
