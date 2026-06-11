@@ -353,6 +353,8 @@ Bei JEDER Frage mit Zeitbezug ZUERST get_current_time() aufrufen:
 → "Wie lange noch bis zum Anpfiff?"
 → "Läuft gerade ein Spiel?"
 → "Wann spielt [Team] heute?"
+→ "Was sind die nächsten Spiele?" / "Was steht heute an?"
+→ "Was sind die Spiele morgen?" / "Was gibt es diese Woche?"
 
 Dann: get_tournament_fixtures(season=2026) → match_date mit UTC-Zeit vergleichen.
 Differenz in Minuten/Stunden berechnen und direkt nennen.
