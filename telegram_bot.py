@@ -61,6 +61,10 @@ else:
 
 from agent.agent import FootballAIAgent
 
+# Bereits gemeldete Snapshots/Spiele (verhindert Doppelbenachrichtigungen)
+_notified_odds:    set[tuple] = set()   # (fixture_id, snapshot_at)
+_notified_pregame: set[int]   = set()   # fixture_id
+
 # Pro Nutzer eine eigene Agent-Session
 _agents: dict[int, FootballAIAgent] = {}
 
@@ -169,15 +173,18 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
     from agent.tools.mysql_tools import get_engine
     with get_engine().connect() as conn:
         rows = conn.execute(text("""
-            SELECT home_team, away_team, match_date, stage
+            SELECT fixture_id, home_team, away_team, match_date, stage
             FROM tournament_fixtures
             WHERE season = 2026 AND league_id = 1
               AND status = 'NS'
-              AND match_date BETWEEN NOW() + INTERVAL 28 MINUTE
-                                 AND NOW() + INTERVAL 32 MINUTE
+              AND match_date BETWEEN NOW() + INTERVAL 20 MINUTE
+                                 AND NOW() + INTERVAL 40 MINUTE
         """)).fetchall()
 
     for r in rows:
+        if r.fixture_id in _notified_pregame:
+            continue
+        _notified_pregame.add(r.fixture_id)
         # 1. Sofortige Benachrichtigung
         await ctx.bot.send_message(
             OWNER_CHAT_ID,
@@ -236,6 +243,7 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
                 FROM odds_history
             )
             SELECT
+                tf.fixture_id,
                 tf.home_team, tf.away_team, tf.match_date, tf.stage,
                 r1.home_odds  AS h_now,  r1.draw_odds  AS d_now,  r1.away_odds  AS a_now,
                 r2.home_odds  AS h_prev, r2.draw_odds  AS d_prev, r2.away_odds  AS a_prev,
@@ -256,6 +264,12 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
         """)).fetchall()
 
     for r in rows:
+        # Dedup: denselben Snapshot nicht zweimal melden
+        dedup_key = (r.fixture_id, str(r.snapshot_at))
+        if dedup_key in _notified_odds:
+            continue
+        _notified_odds.add(dedup_key)
+
         h_delta = float(r.h_now  or 0) - float(r.h_prev or 0)
         d_delta = float(r.d_now  or 0) - float(r.d_prev or 0)
         a_delta = float(r.a_now  or 0) - float(r.a_prev or 0)
