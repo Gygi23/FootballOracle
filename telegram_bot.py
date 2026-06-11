@@ -37,6 +37,15 @@ logger = logging.getLogger(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OWNER_CHAT_ID  = int(os.getenv("TELEGRAM_CHAT_ID", "0"))
 
+# Whitelist: erlaubte Chat-IDs (kommagetrennt in ALLOWED_CHAT_IDS)
+# Wenn nicht gesetzt → nur OWNER_CHAT_ID hat Zugriff
+_raw_ids = os.getenv("ALLOWED_CHAT_IDS", "")
+ALLOWED_CHAT_IDS: set[int] = (
+    {int(x.strip()) for x in _raw_ids.split(",") if x.strip()}
+    if _raw_ids
+    else ({OWNER_CHAT_ID} if OWNER_CHAT_ID else set())
+)
+
 # ─── Agent initialisieren ─────────────────────────────────────────────────────
 
 _provider = os.getenv("LLM_PROVIDER", "gemini").lower()
@@ -51,7 +60,14 @@ else:
     _llm = GeminiLLM()
 
 from agent.agent import FootballAIAgent
-agent = FootballAIAgent(llm=_llm)
+
+# Pro Nutzer eine eigene Agent-Session
+_agents: dict[int, FootballAIAgent] = {}
+
+def _get_agent(chat_id: int) -> FootballAIAgent:
+    if chat_id not in _agents:
+        _agents[chat_id] = FootballAIAgent(llm=_llm)
+    return _agents[chat_id]
 
 # Separater Agent für automatische Benachrichtigungen
 # (damit Pre-Game-Analysen die Chat-Session des Nutzers nicht überschreiben)
@@ -60,26 +76,38 @@ _notif_agent = FootballAIAgent(llm=_llm)
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
+def _is_allowed(chat_id: int) -> bool:
+    return not ALLOWED_CHAT_IDS or chat_id in ALLOWED_CHAT_IDS
+
+
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    if not _is_allowed(chat_id):
+        await update.message.reply_text(
+            f"⛔ Kein Zugriff.\n\nDeine Chat-ID: `{chat_id}`",
+            parse_mode="Markdown"
+        )
+        return
     await update.message.reply_text(
         f"⚽ *footballAI — WM 2026*\n\n"
         f"Stelle mir eine Frage zu einem Spiel, einer Mannschaft oder einer Prognose.\n\n"
         f"*Befehle:*\n"
         f"/heute — Heutige Spiele\n"
-        f"/neu — Neue Sitzung starten\n\n"
-        f"Deine Chat-ID: {chat_id}\n"
-        f"Diese ID als TELEGRAM_CHAT_ID in Railway setzen.",
+        f"/neu — Neue Sitzung starten",
         parse_mode="Markdown"
     )
 
 
 async def cmd_neu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    agent.new_session()
+    if not _is_allowed(update.effective_chat.id):
+        return
+    _get_agent(update.effective_chat.id).new_session()
     await update.message.reply_text("✅ Neue Sitzung gestartet.")
 
 
 async def cmd_heute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not _is_allowed(update.effective_chat.id):
+        return
     from agent.tools.mysql_tools import get_engine
     with get_engine().connect() as conn:
         rows = conn.execute(text("""
@@ -112,8 +140,15 @@ async def cmd_heute(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ─── Nachrichten → Agent ──────────────────────────────────────────────────────
 
 async def handle_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if not _is_allowed(chat_id):
+        await update.message.reply_text(
+            f"⛔ Kein Zugriff. Deine Chat-ID: `{chat_id}`",
+            parse_mode="Markdown"
+        )
+        return
     await update.message.reply_text("⏳ Analysiere…")
-    response = agent.chat(update.message.text)
+    response = _get_agent(chat_id).chat(update.message.text)
 
     # Telegram-Limit: 4096 Zeichen pro Nachricht
     for i in range(0, len(response), 4000):
