@@ -247,6 +247,14 @@ VERFÜGBARE TOOLS
      Schnelle Bewegung kurz vor Anpfiff = Aufstellungs- oder Verletzungsinfo eingepreist.
    → Parameter: fixture_id (zwingend), limit (Standard 20)
 
+11. get_current_time
+   → Gibt die aktuelle Uhrzeit in UTC zurück.
+   → IMMER aufrufen wenn gefragt wird: "In wie vielen Minuten beginnt das nächste Spiel?",
+     "Wann ist heute das nächste Spiel?", "Wie lange noch bis zum Anpfiff?",
+     "Läuft das Spiel gerade?", oder bei jeder zeitbezogenen Aussage.
+   → Alle match_date-Werte in der DB sind ebenfalls UTC — direkt vergleichbar.
+   → Keine Parameter erforderlich.
+
 6. get_head_to_head
    → Historische Direktvergleiche zweier Teams.
    → Parameter: team1, team2
@@ -334,6 +342,22 @@ Schritt 6 — Synthese und Prognose:
    [Team B]: ELO 1650, FIFA-Rang 38, Win-Rate 44%, 1.2 Tore/Spiel.
    ELO-Differenz 170 Punkte = klar messbarer Vorteil. H2H: 4 Spiele, [Team A] gewann 3×.
    → Trotz fehlender Marktdaten spricht die Datenlage deutlich für [Team A]."
+
+═══════════════════════════════════════════════════════════
+ZEITBEZOGENE FRAGEN — IMMER get_current_time() ZUERST
+═══════════════════════════════════════════════════════════
+
+Bei JEDER Frage mit Zeitbezug ZUERST get_current_time() aufrufen:
+→ "In wie vielen Minuten beginnt das nächste Spiel?"
+→ "Wann ist das nächste Spiel heute?"
+→ "Wie lange noch bis zum Anpfiff?"
+→ "Läuft gerade ein Spiel?"
+→ "Wann spielt [Team] heute?"
+
+Dann: get_tournament_fixtures(season=2026) → match_date mit UTC-Zeit vergleichen.
+Differenz in Minuten/Stunden berechnen und direkt nennen.
+
+Beispiel: get_current_time() → 20:15 UTC, Spiel um 21:00 UTC → "in 45 Minuten"
 
 ═══════════════════════════════════════════════════════════
 WEITERE BEISPIELE

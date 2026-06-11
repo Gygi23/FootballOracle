@@ -866,6 +866,37 @@ TOOL_GET_ODDS_HISTORY = {
 }
 
 
+# -----------------------------------------------------------------------------
+# Tool 13: get_current_time
+# -----------------------------------------------------------------------------
+
+
+def get_current_time() -> str:
+    """Gibt die aktuelle UTC-Zeit zurück."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    return json_response({
+        "utc_now": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "timezone": "UTC",
+        "note": "Alle match_date-Werte in der DB sind ebenfalls UTC."
+    })
+
+
+TOOL_GET_CURRENT_TIME = {
+    "name": "get_current_time",
+    "description": (
+        "Gibt die aktuelle Uhrzeit in UTC zurück. "
+        "Verwenden wenn gefragt wird wie viele Minuten/Stunden bis zum nächsten Spiel, "
+        "ob ein Spiel gerade läuft, oder wann heute noch Spiele stattfinden."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+}
+
+
 ALL_TOOLS = [
     TOOL_GET_TEAM_MATCHES,
     TOOL_GET_TEAM_STATS,
@@ -879,6 +910,7 @@ ALL_TOOLS = [
     TOOL_GET_FIXTURE_WITH_PREDICTION,
     TOOL_GET_TOURNAMENT_TEAM_SUMMARY,
     TOOL_GET_ODDS_HISTORY,
+    TOOL_GET_CURRENT_TIME,
 ]
 
 TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
@@ -894,6 +926,7 @@ TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
     "get_fixture_with_prediction": get_fixture_with_prediction,
     "get_tournament_team_summary": get_tournament_team_summary,
     "get_odds_history": get_odds_history,
+    "get_current_time": get_current_time,
 }
 
 
