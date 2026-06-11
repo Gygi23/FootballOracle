@@ -7,6 +7,7 @@ from sqlalchemy import text
 from dotenv import load_dotenv
 from odds_extractor import fetch_upcoming_odds
 from compute_kpis import run as update_team_stats
+from compute_elo import run as update_elo
 
 load_dotenv()
 
@@ -340,6 +341,10 @@ def main():
 
     # 6. Team-KPIs aktualisieren (historisch + abgeschlossene WM-2026-Spiele)
     update_team_stats()
+    print()
+
+    # 7. ELO-Ratings neu berechnen
+    update_elo()
     print()
 
     print(f"Fertig. Calls heute total: {get_calls_today()}")

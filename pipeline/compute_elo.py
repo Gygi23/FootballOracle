@@ -21,15 +21,13 @@ import sys
 from datetime import datetime
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv()
 
-engine = create_engine(
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
-)
+from agent.tools.mysql_tools import get_engine
+engine = get_engine()
 
 BASE_ELO   = 1500.0
 ELO_SCALE  = 400.0  # Skalierungsfaktor in der Erwartungsformel
