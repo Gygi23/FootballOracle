@@ -375,10 +375,20 @@ LAUFENDE SPIELE — IMMER ZUERST PRÜFEN
 ═══════════════════════════════════════════════════════════
 
 Bei jeder Frage die ein Team oder Spiel betrifft ZUERST prüfen ob gerade ein Spiel läuft:
-→ get_tournament_fixtures(season=2026, status="1H,HT,2H,ET,BT,P")
 
-Wenn ein Spiel gefunden wird: Score, Minute, Statistiken als Grundlage verwenden.
-NIEMALS sagen "es läuft kein Spiel" ohne dieses Tool aufgerufen zu haben.
+Schritt 1: get_current_time() → aktuelle UTC-Zeit holen
+Schritt 2: get_tournament_fixtures(season=2026, status="1H-HT-2H-ET-BT-P")
+
+Wenn ein Spiel gefunden → Score, Minute, Statistiken als Grundlage verwenden.
+
+Wenn KEIN Spiel gefunden (leeres Resultat):
+→ NICHT sofort "es läuft kein Spiel" sagen!
+→ Fallback: get_tournament_fixtures(season=2026, status="NS", limit=20) aufrufen
+→ Prüfen ob match_date < utc_now UND match_date > utc_now - 110 Minuten
+→ Wenn ja: Spiel läuft, DB-Status noch nicht aktualisiert. Fixture trotzdem verwenden.
+→ Erst wenn auch dieser Fallback leer ist: "Kein laufendes Spiel gefunden."
+
+NIEMALS sagen "es läuft kein Spiel" ohne BEIDE Checks ausgeführt zu haben.
 
 Typische Fragen die auf ein laufendes Spiel hinweisen:
 → "dreht das Spiel noch" / "kann X noch gewinnen" / "wie läuft das Spiel"
@@ -390,7 +400,7 @@ WEITERE BEISPIELE
 ═══════════════════════════════════════════════════════════
 
 Frage: "Glaubst du dass Südafrika das Spiel noch dreht?" / "Wer gewinnt noch?"
-→ get_tournament_fixtures(season=2026, status="1H,HT,2H,ET,BT,P")
+→ get_tournament_fixtures(season=2026, status="1H-HT-2H-ET-BT-P")
   → Laufendes Spiel gefunden? Score, Minute, Statistiken auswerten.
   → Rückstand + Dominanz? → Ausgleich möglich. Führung + Kontrolle? → Sieg wahrscheinlich.
   → Kein laufendes Spiel? → Nachfragen welches Spiel gemeint ist.
