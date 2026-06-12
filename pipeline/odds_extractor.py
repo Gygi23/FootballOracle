@@ -302,6 +302,10 @@ def fetch_upcoming_odds(api_get_func):
                   ap.fixture_id IS NULL
                   OR ap.home_odds IS NULL
                   OR ap.updated_at < NOW() - INTERVAL 6 HOUR
+                  OR NOT EXISTS (
+                      SELECT 1 FROM odds_exact_score oes
+                      WHERE oes.fixture_id = tf.fixture_id
+                  )
               )
             ORDER BY tf.match_date
         """), {

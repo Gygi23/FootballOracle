@@ -880,14 +880,14 @@ TOOL_GET_ODDS_HISTORY = {
 def get_exact_score_odds(fixture_id: int, top_n: int = 5) -> str:
     """Wahrscheinlichste Ergebnisse aus Exact-Score-Quoten für ein Fixture."""
     top_n = min(int(top_n), 20)
-    sql = """
+    sql = f"""
     SELECT scoreline, odds_avg, probability
     FROM odds_exact_score
     WHERE fixture_id = :fixture_id
     ORDER BY probability DESC
-    LIMIT :top_n
+    LIMIT {top_n}
     """
-    return query_to_json(sql, {"fixture_id": fixture_id, "top_n": top_n})
+    return query_to_json(sql, {"fixture_id": fixture_id})
 
 
 TOOL_GET_EXACT_SCORE_ODDS = {
