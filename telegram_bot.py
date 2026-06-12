@@ -203,53 +203,53 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
         match_dt = r.match_date.replace(tzinfo=timezone.utc) if r.match_date.tzinfo is None else r.match_date
         mins_left = max(1, int((match_dt - _dt.now(timezone.utc)).total_seconds() / 60))
 
-        # Top-3 wahrscheinlichste Ergebnisse aus Exact Score Quoten
-        exact_line = ""
+        # Odds + wahrscheinlichstes Ergebnis aus DB holen
+        winner_line = ""
+        exact_line  = ""
         try:
             from sqlalchemy import text as _text
             with get_engine().connect() as _conn:
-                _rows = _conn.execute(_text("""
+                # Implied Wahrscheinlichkeiten aus api_predictions
+                pred = _conn.execute(_text("""
+                    SELECT home_win_implied, draw_implied, away_win_implied
+                    FROM api_predictions WHERE fixture_id = :fid
+                """), {"fid": r.fixture_id}).fetchone()
+
+                # Top-1 Exact Score
+                top_score = _conn.execute(_text("""
                     SELECT scoreline, probability FROM odds_exact_score
-                    WHERE fixture_id = :fid ORDER BY probability DESC LIMIT 3
-                """), {"fid": r.fixture_id}).fetchall()
-            if _rows:
-                parts = [f"{row.scoreline} ({row.probability*100:.0f}%)" for row in _rows]
-                exact_line = "\n📊 *Ergebnis:* " + " · ".join(parts)
+                    WHERE fixture_id = :fid ORDER BY probability DESC LIMIT 1
+                """), {"fid": r.fixture_id}).fetchone()
+
+            if pred and pred.home_win_implied:
+                h = float(pred.home_win_implied)
+                d = float(pred.draw_implied)
+                a = float(pred.away_win_implied)
+                if h >= a and h >= d:
+                    winner_line = f"\n🏆 *{r.home_team}* gewinnt ({h*100:.0f}%)"
+                elif a >= h and a >= d:
+                    winner_line = f"\n🏆 *{r.away_team}* gewinnt ({a*100:.0f}%)"
+                else:
+                    winner_line = f"\n🏆 Unentschieden ({d*100:.0f}%)"
+
+            if top_score:
+                exact_line = (
+                    f"\n📊 Wahrscheinlichstes Ergebnis: "
+                    f"*{top_score.scoreline}* ({top_score.probability*100:.0f}%)"
+                )
         except Exception:
             pass
 
-        # 1. Sofortige Benachrichtigung
+        # Benachrichtigung senden
         await ctx.bot.send_message(
             OWNER_CHAT_ID,
             f"🔔 *Spielstart in {mins_left} Minuten*\n\n"
             f"⚽ {r.home_team} vs {r.away_team}\n"
             f"🕐 {_to_local(r.match_date)} Uhr · {r.stage}"
-            f"{exact_line}\n\n"
-            f"_Analyse wird geladen..._",
+            f"{winner_line}"
+            f"{exact_line}",
             parse_mode="Markdown"
         )
-
-        # 2. Agent-Analyse (blockierend → in Thread-Pool auslagern)
-        import asyncio
-        prompt = (
-            f"Spielstart in {mins_left} Minuten: {r.home_team} vs {r.away_team} ({r.stage}). "
-            f"Gib mir eine kompakte Einschätzung für den Ausgang: Wer gewinnt, "
-            f"warum, und wie sicher ist der Markt? Maximal 4 Sätze."
-        )
-        _notif_agent.new_session()
-        try:
-            loop = asyncio.get_running_loop()
-            analysis = await loop.run_in_executor(None, _notif_agent.chat, prompt)
-            # Auf 3900 Zeichen kürzen (Telegram-Limit 4096)
-            if len(analysis) > 3900:
-                analysis = analysis[:3900] + "…"
-            await ctx.bot.send_message(OWNER_CHAT_ID, f"🤖 {analysis}")
-        except Exception as e:
-            logger.error(f"Pre-game Analyse fehlgeschlagen: {e}")
-            await ctx.bot.send_message(
-                OWNER_CHAT_ID,
-                "⚠️ Analyse konnte nicht geladen werden."
-            )
 
 
 async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
