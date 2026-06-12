@@ -381,6 +381,11 @@ Schritt 2: get_tournament_fixtures(season=2026, status="1H-HT-2H-ET-BT-P")
 
 Wenn ein Spiel gefunden → Score, Minute, Statistiken als Grundlage verwenden.
 
+WICHTIG — BEI JEDER FOLGEFRAGE ZU EINEM LAUFENDEN SPIEL:
+→ Den Spielstand NIEMALS aus dem Gesprächsverlauf übernehmen.
+→ IMMER erneut get_tournament_fixtures aufrufen um den aktuellen Stand zu holen.
+→ Live-Scores ändern sich laufend — der vorherige Turn kann bereits veraltet sein.
+
 Wenn KEIN Spiel gefunden (leeres Resultat):
 → NICHT sofort "es läuft kein Spiel" sagen!
 → Fallback: get_tournament_fixtures(season=2026, status="NS", limit=20) aufrufen
