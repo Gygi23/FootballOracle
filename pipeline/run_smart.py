@@ -1,7 +1,7 @@
 """
 run_smart.py — Intelligenter Pipeline-Scheduler
 
-Wird alle 2 Minuten via Cron ausgeführt und entscheidet selbst was zu tun ist:
+Wird alle 5 Minuten via Cron ausgeführt und entscheidet selbst was zu tun ist:
 
   Immer (alle 4h)        → Voller Run (Odds, Standings, Predictions, KPIs)
   2h vor Anpfiff         → Odds refresh (Markt öffnet sich)

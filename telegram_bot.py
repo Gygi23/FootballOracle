@@ -189,18 +189,24 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
             FROM tournament_fixtures
             WHERE season = 2026 AND league_id = 1
               AND status = 'NS'
-              AND match_date BETWEEN NOW() + INTERVAL 20 MINUTE
-                                 AND NOW() + INTERVAL 40 MINUTE
+              AND match_date BETWEEN NOW() + INTERVAL 28 MINUTE
+                                 AND NOW() + INTERVAL 32 MINUTE
         """)).fetchall()
 
     for r in rows:
         if r.fixture_id in _notified_pregame:
             continue
         _notified_pregame.add(r.fixture_id)
+
+        # Echte Minuten bis Anpfiff berechnen
+        from datetime import datetime as _dt
+        match_dt = r.match_date.replace(tzinfo=timezone.utc) if r.match_date.tzinfo is None else r.match_date
+        mins_left = max(1, int((match_dt - _dt.now(timezone.utc)).total_seconds() / 60))
+
         # 1. Sofortige Benachrichtigung
         await ctx.bot.send_message(
             OWNER_CHAT_ID,
-            f"🔔 *Spielstart in 30 Minuten*\n\n"
+            f"🔔 *Spielstart in {mins_left} Minuten*\n\n"
             f"⚽ {r.home_team} vs {r.away_team}\n"
             f"🕐 {_to_local(r.match_date)} Uhr · {r.stage}\n\n"
             f"_Analyse wird geladen..._",
@@ -210,7 +216,7 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
         # 2. Agent-Analyse (blockierend → in Thread-Pool auslagern)
         import asyncio
         prompt = (
-            f"Spielstart in 30 Minuten: {r.home_team} vs {r.away_team} ({r.stage}). "
+            f"Spielstart in {mins_left} Minuten: {r.home_team} vs {r.away_team} ({r.stage}). "
             f"Gib mir eine kompakte Einschätzung für den Ausgang: Wer gewinnt, "
             f"warum, und wie sicher ist der Markt? Maximal 4 Sätze."
         )
@@ -260,7 +266,7 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
                 r1.home_odds  AS h_now,  r1.draw_odds  AS d_now,  r1.away_odds  AS a_now,
                 r2.home_odds  AS h_prev, r2.draw_odds  AS d_prev, r2.away_odds  AS a_prev,
                 r1.recorded_at AS snapshot_at,
-                TIMESTAMPDIFF(HOUR, NOW(), tf.match_date) AS hours_to_kickoff
+                TIMESTAMPDIFF(MINUTE, NOW(), tf.match_date) AS minutes_to_kickoff
             FROM tournament_fixtures tf
             JOIN ranked r1 ON r1.fixture_id = tf.fixture_id AND r1.rn = 1
             JOIN ranked r2 ON r2.fixture_id = tf.fixture_id AND r2.rn = 2
@@ -285,12 +291,20 @@ async def notify_odds_movement(ctx: ContextTypes.DEFAULT_TYPE):
         h_delta = float(r.h_now  or 0) - float(r.h_prev or 0)
         d_delta = float(r.d_now  or 0) - float(r.d_prev or 0)
         a_delta = float(r.a_now  or 0) - float(r.a_prev or 0)
-        hours   = int(r.hours_to_kickoff or 0)
+        total_min = int(r.minutes_to_kickoff or 0)
+        hrs, mins = divmod(total_min, 60)
 
         time_str  = (r.match_date.replace(tzinfo=timezone.utc)
                      .astimezone(_DISPLAY_TZ).strftime("%d.%m. %H:%M")
                      if r.match_date else "?")
-        timing    = f"in {hours}h" if hours < 24 else f"in {hours//24}d {hours%24}h"
+        if hrs >= 24:
+            timing = f"in {hrs//24}d {hrs%24}h"
+        elif mins == 0:
+            timing = f"in {hrs}h"
+        elif hrs == 0:
+            timing = f"in {mins}min"
+        else:
+            timing = f"in {hrs}h {mins}min"
 
         lines = [f"📊 *Quotenbewegung* — {r.home_team} vs {r.away_team}",
                  f"{time_str} Uhr · {r.stage} · Anpfiff {timing}\n"]
