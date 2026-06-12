@@ -873,7 +873,52 @@ TOOL_GET_ODDS_HISTORY = {
 
 
 # -----------------------------------------------------------------------------
-# Tool 13: get_current_time
+# Tool 13: get_exact_score_odds
+# -----------------------------------------------------------------------------
+
+
+def get_exact_score_odds(fixture_id: int, top_n: int = 5) -> str:
+    """Wahrscheinlichste Ergebnisse aus Exact-Score-Quoten für ein Fixture."""
+    top_n = min(int(top_n), 20)
+    sql = """
+    SELECT scoreline, odds_avg, probability
+    FROM odds_exact_score
+    WHERE fixture_id = :fixture_id
+    ORDER BY probability DESC
+    LIMIT :top_n
+    """
+    return query_to_json(sql, {"fixture_id": fixture_id, "top_n": top_n})
+
+
+TOOL_GET_EXACT_SCORE_ODDS = {
+    "name": "get_exact_score_odds",
+    "description": (
+        "Holt die wahrscheinlichsten Ergebnisse (Exact Score) aus Buchmacher-Quoten für ein Fixture. "
+        "Gibt normalisierte Wahrscheinlichkeiten zurück (Bookmaker-Margin herausgerechnet). "
+        "Felder: scoreline (z.B. '1:0'), odds_avg (Durchschnittsquote), probability (0-1). "
+        "Verwenden wenn nach dem wahrscheinlichsten Ergebnis gefragt wird, z.B. '1:0 mit 18%'. "
+        "Benötigt fixture_id — zuerst get_tournament_fixtures aufrufen."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "fixture_id": {
+                "type": "integer",
+                "description": "Fixture-ID des Spiels.",
+            },
+            "top_n": {
+                "type": "integer",
+                "description": "Anzahl der Top-Ergebnisse. Standard 5, Maximum 20.",
+                "default": 5,
+            },
+        },
+        "required": ["fixture_id"],
+    },
+}
+
+
+# -----------------------------------------------------------------------------
+# Tool 14: get_current_time
 # -----------------------------------------------------------------------------
 
 
@@ -938,6 +983,7 @@ ALL_TOOLS = [
     TOOL_GET_FIXTURE_WITH_PREDICTION,
     TOOL_GET_TOURNAMENT_TEAM_SUMMARY,
     TOOL_GET_ODDS_HISTORY,
+    TOOL_GET_EXACT_SCORE_ODDS,
     TOOL_GET_CURRENT_TIME,
 ]
 
@@ -954,6 +1000,7 @@ TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
     "get_fixture_with_prediction": get_fixture_with_prediction,
     "get_tournament_team_summary": get_tournament_team_summary,
     "get_odds_history": get_odds_history,
+    "get_exact_score_odds": get_exact_score_odds,
     "get_current_time": get_current_time,
 }
 

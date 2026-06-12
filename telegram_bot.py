@@ -203,12 +203,28 @@ async def notify_pregame(ctx: ContextTypes.DEFAULT_TYPE):
         match_dt = r.match_date.replace(tzinfo=timezone.utc) if r.match_date.tzinfo is None else r.match_date
         mins_left = max(1, int((match_dt - _dt.now(timezone.utc)).total_seconds() / 60))
 
+        # Top-3 wahrscheinlichste Ergebnisse aus Exact Score Quoten
+        exact_line = ""
+        try:
+            from sqlalchemy import text as _text
+            with get_engine().connect() as _conn:
+                _rows = _conn.execute(_text("""
+                    SELECT scoreline, probability FROM odds_exact_score
+                    WHERE fixture_id = :fid ORDER BY probability DESC LIMIT 3
+                """), {"fid": r.fixture_id}).fetchall()
+            if _rows:
+                parts = [f"{row.scoreline} ({row.probability*100:.0f}%)" for row in _rows]
+                exact_line = "\n📊 *Ergebnis:* " + " · ".join(parts)
+        except Exception:
+            pass
+
         # 1. Sofortige Benachrichtigung
         await ctx.bot.send_message(
             OWNER_CHAT_ID,
             f"🔔 *Spielstart in {mins_left} Minuten*\n\n"
             f"⚽ {r.home_team} vs {r.away_team}\n"
-            f"🕐 {_to_local(r.match_date)} Uhr · {r.stage}\n\n"
+            f"🕐 {_to_local(r.match_date)} Uhr · {r.stage}"
+            f"{exact_line}\n\n"
             f"_Analyse wird geladen..._",
             parse_mode="Markdown"
         )

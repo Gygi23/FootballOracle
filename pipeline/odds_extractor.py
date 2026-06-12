@@ -70,6 +70,27 @@ def _normalize(home_odd: float, draw_odd: float, away_odd: float) -> dict:
     }
 
 
+def _extract_exact_score(bets: list) -> dict[str, float]:
+    """Extrahiert Exact-Score-Quoten aus der Bets-Liste eines Bookmakers.
+    Gibt ein Dict {scoreline: odds} zurück, z.B. {"1:0": 5.50, "0:0": 7.00}.
+    """
+    for bet in bets:
+        if bet.get("name") == "Exact Score":
+            scores: dict[str, float] = {}
+            for val in bet.get("values", []):
+                v = str(val.get("value", "")).strip()
+                # Normalisiere auf "H:A" Format (API liefert manchmal "1-0" oder "1:0")
+                v = v.replace("-", ":")
+                try:
+                    o = float(val["odd"])
+                    if o > 1.0 and ":" in v:
+                        scores[v] = o
+                except (ValueError, KeyError):
+                    continue
+            return scores
+    return {}
+
+
 def _extract_match_winner(bets: list) -> tuple[float, float, float] | tuple[None, None, None]:
     """Extrahiert Home/Draw/Away Quoten aus der Bets-Liste eines Bookmakers."""
     for bet in bets:
@@ -193,6 +214,67 @@ def extract_odds(bookmakers_response: list) -> dict | None:
     }
 
 
+def extract_exact_score_probs(bookmakers_response: list) -> list[dict] | None:
+    """
+    Berechnet normalisierte Wahrscheinlichkeiten für Exact-Score-Quoten
+    aus allen Whitelist-Bookmakers.
+
+    Gibt eine Liste von Dicts zurück, sortiert nach probability absteigend:
+    [{"scoreline": "1:0", "odds_avg": 5.50, "probability": 0.182}, ...]
+
+    Gibt None zurück wenn keine Daten vorhanden.
+    """
+    # Sammle Quoten pro Scoreline über alle Whitelist-BMs
+    bm_scores: dict[str, list[float]] = {}
+
+    for bm in bookmakers_response:
+        if bm.get("id") not in BOOKMAKER_WHITELIST:
+            continue
+        scores = _extract_exact_score(bm.get("bets", []))
+        for scoreline, odd in scores.items():
+            bm_scores.setdefault(scoreline, []).append(odd)
+
+    if not bm_scores:
+        return None
+
+    # Durchschnitts-Quote pro Scoreline (nur wenn mind. 1 BM Daten hat)
+    avg_odds = {s: mean(odds) for s, odds in bm_scores.items()}
+
+    # Normalisierte implizite Wahrscheinlichkeiten (Bookmaker-Margin rausrechnen)
+    raw_probs = {s: 1 / o for s, o in avg_odds.items()}
+    total = sum(raw_probs.values())
+    if total == 0:
+        return None
+
+    results = [
+        {
+            "scoreline":   s,
+            "odds_avg":    round(avg_odds[s], 3),
+            "probability": round(raw_probs[s] / total, 5),
+        }
+        for s in avg_odds
+    ]
+
+    return sorted(results, key=lambda x: x["probability"], reverse=True)
+
+
+def _ensure_exact_score_table():
+    """Erstellt die odds_exact_score-Tabelle falls noch nicht vorhanden."""
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS odds_exact_score (
+                fixture_id   INT          NOT NULL,
+                scoreline    VARCHAR(10)  NOT NULL,
+                odds_avg     DECIMAL(8,3) NOT NULL,
+                probability  DECIMAL(7,5) NOT NULL,
+                updated_at   DATETIME     DEFAULT CURRENT_TIMESTAMP
+                             ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (fixture_id, scoreline)
+            )
+        """))
+        conn.commit()
+
+
 # ─── Fetch Function ───────────────────────────────────────────────────────────
 
 def fetch_upcoming_odds(api_get_func):
@@ -203,6 +285,7 @@ def fetch_upcoming_odds(api_get_func):
 
     api_get_func: die api_get() Funktion aus run_daily.py
     """
+    _ensure_exact_score_table()
     print("Odds für alle ausstehenden Spiele abrufen...")
     today = date.today()
 
@@ -309,7 +392,33 @@ def fetch_upcoming_odds(api_get_func):
             })
             conn.commit()
 
+        # Exact Score Wahrscheinlichkeiten berechnen + speichern
+        bookmakers = response[0].get("bookmakers", [])
+        exact_scores = extract_exact_score_probs(bookmakers)
+        if exact_scores:
+            with engine.connect() as conn:
+                for entry in exact_scores:
+                    conn.execute(text("""
+                        INSERT INTO odds_exact_score (fixture_id, scoreline, odds_avg, probability)
+                        VALUES (:fixture_id, :scoreline, :odds_avg, :probability)
+                        ON DUPLICATE KEY UPDATE
+                            odds_avg    = :odds_avg,
+                            probability = :probability,
+                            updated_at  = CURRENT_TIMESTAMP
+                    """), {
+                        "fixture_id":  fixture_id,
+                        "scoreline":   entry["scoreline"],
+                        "odds_avg":    entry["odds_avg"],
+                        "probability": entry["probability"],
+                    })
+                conn.commit()
+
         saved += 1
+        top_score = exact_scores[0] if exact_scores else None
+        top_str = (
+            f"  | top: {top_score['scoreline']} ({top_score['probability']*100:.1f}%)"
+            if top_score else ""
+        )
         print(
             f"  {home_team} vs {away_team}: "
             f"{odds['home_odds']} / {odds['draw_odds']} / {odds['away_odds']}  "
@@ -318,7 +427,7 @@ def fetch_upcoming_odds(api_get_func):
             f"{odds['away_win_implied']*100:.1f}%  "
             f"| margin {odds['margin_avg']*100:.1f}%  "
             f"| {odds['market_confidence']} "
-            f"({odds['odds_bookmaker_count']} BMs)"
+            f"({odds['odds_bookmaker_count']} BMs){top_str}"
         )
 
     print(f"  {saved} Odds gespeichert")

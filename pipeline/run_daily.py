@@ -337,11 +337,7 @@ def main():
     ensure_upcoming_fixtures()
     print()
 
-    # 4. Predictions für nächste 3 Tage
-    fetch_upcoming_predictions()
-    print()
-
-    # 5. Odds für nächste 3 Tage (via odds_extractor.py)
+    # 4. Odds für nächste 3 Tage (via odds_extractor.py)
     fetch_upcoming_odds(api_get)
     print()
 

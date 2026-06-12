@@ -336,6 +336,24 @@ def load_agent_predictions():
     return r.get("result", [])
 
 @st.cache_data(ttl=300)
+def load_exact_score_odds(fixture_id: int) -> list[dict]:
+    """Top-5 Exact-Score-Ergebnisse aus odds_exact_score für ein Fixture."""
+    from sqlalchemy import text
+    from agent.tools.mysql_tools import get_engine
+    try:
+        with get_engine().connect() as conn:
+            rows = conn.execute(text("""
+                SELECT scoreline, odds_avg, probability
+                FROM odds_exact_score
+                WHERE fixture_id = :fid
+                ORDER BY probability DESC
+                LIMIT 5
+            """), {"fid": fixture_id}).fetchall()
+        return [{"scoreline": r.scoreline, "odds_avg": float(r.odds_avg), "probability": float(r.probability)} for r in rows]
+    except Exception:
+        return []
+
+@st.cache_data(ttl=300)
 def load_ko_fixtures():
     from agent.tools.mysql_tools import get_tournament_fixtures
     import json
@@ -524,6 +542,49 @@ def odds_tiles_html(
     return (
         f'<div style="margin-bottom:14px">'
         f'{label_html}{header_html}{tiles_html}{odds_html}{meta_html}'
+        f'</div>'
+    )
+
+
+def exact_score_section_html(scores: list[dict]) -> str:
+    """
+    Rendert die Top-N wahrscheinlichsten Ergebnisse als kompakte Kachelreihe.
+    scores: [{"scoreline": "1:0", "odds_avg": 5.50, "probability": 0.182}, ...]
+    """
+    if not scores:
+        return ""
+
+    header = (
+        '<div style="font-size:0.7rem;font-weight:600;color:#8a9ab5;'
+        'text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px">'
+        'Wahrscheinlichstes Ergebnis</div>'
+    )
+
+    tiles = ""
+    for entry in scores[:5]:
+        pct   = round(entry["probability"] * 100, 1)
+        score = entry["scoreline"]
+        odds  = entry["odds_avg"]
+        # Top-Ergebnis bekommt dunkleren Hintergrund
+        is_top = entry is scores[0]
+        bg     = "#16213e" if is_top else "#f1f5f9"
+        color  = "#ffffff" if is_top else "#374151"
+        sub    = "#94b4d4" if is_top else "#94a3b8"
+        tiles += (
+            f'<div style="flex:1;min-width:52px;background:{bg};border-radius:8px;'
+            f'padding:8px 4px;text-align:center">'
+            f'<div style="font-size:0.85rem;font-weight:700;color:{color};'
+            f'font-family:\'DM Mono\',monospace">{score}</div>'
+            f'<div style="font-size:0.68rem;font-weight:600;color:{color};margin-top:2px">'
+            f'{pct}%</div>'
+            f'<div style="font-size:0.6rem;color:{sub};margin-top:1px">{odds:.2f}</div>'
+            f'</div>'
+        )
+
+    return (
+        f'<div style="padding:10px 0;border-top:1px solid rgba(0,0,0,0.06)">'
+        f'{header}'
+        f'<div style="display:flex;gap:5px">{tiles}</div>'
         f'</div>'
     )
 
@@ -812,6 +873,15 @@ def render_match_card(fx, api_preds, agent_preds):
             wettmarkt_html(home, away, api_p if api_p else {}, is_finished=is_finished),
             unsafe_allow_html=True,
         )
+
+        # ── Wahrscheinlichstes Ergebnis (Exact Score) ─────────────────────────
+        if fid and not is_finished:
+            exact_scores = load_exact_score_odds(fid)
+            if exact_scores:
+                st.markdown(
+                    exact_score_section_html(exact_scores),
+                    unsafe_allow_html=True,
+                )
 
         # ── Quotenverlauf ────────────────────────────────────────────────────
         if fid:

@@ -247,6 +247,13 @@ VERFÜGBARE TOOLS
      Schnelle Bewegung kurz vor Anpfiff = Aufstellungs- oder Verletzungsinfo eingepreist.
    → Parameter: fixture_id (zwingend), limit (Standard 20)
 
+12. get_exact_score_odds
+   → Wahrscheinlichste Ergebnisse aus Exact-Score-Buchmacher-Quoten.
+   → Liefert: scoreline (z.B. "1:0"), odds_avg, probability (normalisiert, Margin herausgerechnet).
+   → Verwenden wenn nach dem wahrscheinlichsten Ergebnis gefragt wird.
+   → Beispiel: "1:0 mit 18%, 0:0 mit 12%, 2:1 mit 10%"
+   → Parameter: fixture_id (zwingend), top_n (Standard 5)
+
 11. get_current_time
    → Gibt die aktuelle Uhrzeit in UTC zurück.
    → IMMER aufrufen wenn gefragt wird: "In wie vielen Minuten beginnt das nächste Spiel?",

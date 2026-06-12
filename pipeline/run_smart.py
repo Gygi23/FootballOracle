@@ -166,12 +166,10 @@ def run_full_pipeline():
 
 
 def run_odds_refresh():
-    """Nur Odds und Predictions updaten."""
+    """Nur Odds updaten."""
     print("[smart] Odds-Refresh (pre-game)...")
-    import requests, time as _time
-    from run_daily import api_get, fetch_upcoming_predictions
+    from run_daily import api_get
     from odds_extractor import fetch_upcoming_odds
-    fetch_upcoming_predictions()
     fetch_upcoming_odds(api_get)
 
 
