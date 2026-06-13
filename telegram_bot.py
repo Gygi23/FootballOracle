@@ -8,7 +8,7 @@ Features:
 
 Automatische Benachrichtigungen:
   - 30 Minuten vor Spielstart
-  - Starke Quoten-Bewegungen (> 10 Rappen)
+  - Starke Quoten-Bewegungen (> 0.25)
 
 Setup:
   TELEGRAM_BOT_TOKEN  → Token von @BotFather

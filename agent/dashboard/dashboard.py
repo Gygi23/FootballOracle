@@ -993,6 +993,9 @@ def render_match_card(fx, api_preds, agent_preds):
                     return ""
                 h = home_val or 0
                 a = away_val or 0
+                # Beide 0 → nichts anzeigen (verhindert falsche 0%/100% Balken)
+                if h == 0 and a == 0:
+                    return ""
                 total = h + a or 1
                 h_pct = round(h / total * 100)
                 a_pct = 100 - h_pct
@@ -1001,11 +1004,11 @@ def render_match_card(fx, api_preds, agent_preds):
                     f'align-items:center;gap:8px;margin-bottom:6px">'
                     f'<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">'
                     f'<span style="font-size:0.75rem;font-weight:600;color:#16213e">{h}</span>'
-                    f'<div style="height:10px;width:{h_pct}%;background:#16213e;border-radius:3px;min-width:2px"></div>'
+                    f'<div style="height:10px;width:{h_pct}%;background:#16213e;border-radius:3px"></div>'
                     f'</div>'
                     f'<span style="font-size:0.68rem;color:#2d3a50;white-space:nowrap;text-align:center">{label}</span>'
                     f'<div style="display:flex;align-items:center;gap:6px">'
-                    f'<div style="height:10px;width:{a_pct}%;background:#dc6f5c;border-radius:3px;min-width:2px"></div>'
+                    f'<div style="height:10px;width:{a_pct}%;background:#dc6f5c;border-radius:3px"></div>'
                     f'<span style="font-size:0.75rem;font-weight:600;color:#16213e">{a}</span>'
                     f'</div></div>'
                 )

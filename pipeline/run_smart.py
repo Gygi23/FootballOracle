@@ -109,7 +109,7 @@ def get_just_finished_fixtures() -> list[dict]:
             FROM tournament_fixtures
             WHERE league_id  = :league AND season = :season
               AND status     IN ('FT', 'AET', 'PEN')
-              AND DATE(match_date) = CURDATE()
+              AND match_date > NOW() - INTERVAL 36 HOUR
               AND updated_at > :last_kpi
         """), {
             "league":   LEAGUE_ID,
