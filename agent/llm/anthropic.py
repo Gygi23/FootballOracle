@@ -12,7 +12,7 @@ load_dotenv()
 
 
 class AnthropicLLM(BaseLLM):
-    MODEL = "claude-haiku-4-5"
+    MODEL = "claude-sonnet-4-6"
     MAX_ITERATIONS = 10
 
     def __init__(self):

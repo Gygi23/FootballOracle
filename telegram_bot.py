@@ -60,17 +60,6 @@ ALLOWED_CHAT_IDS: set[int] = (
 
 # ─── Agent initialisieren ─────────────────────────────────────────────────────
 
-_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
-if _provider == "claude":
-    from agent.llm.anthropic import AnthropicLLM
-    _llm = AnthropicLLM()
-elif _provider == "ollama":
-    from agent.llm.ollama import OllamaLLM
-    _llm = OllamaLLM()
-else:
-    from agent.llm.gemini import GeminiLLM
-    _llm = GeminiLLM()
-
 from agent.agent import FootballAIAgent
 
 # Bereits gemeldete Snapshots/Spiele (verhindert Doppelbenachrichtigungen)
@@ -82,12 +71,12 @@ _agents: dict[int, FootballAIAgent] = {}
 
 def _get_agent(chat_id: int) -> FootballAIAgent:
     if chat_id not in _agents:
-        _agents[chat_id] = FootballAIAgent(llm=_llm)
+        _agents[chat_id] = FootballAIAgent()
     return _agents[chat_id]
 
 # Separater Agent für automatische Benachrichtigungen
 # (damit Pre-Game-Analysen die Chat-Session des Nutzers nicht überschreiben)
-_notif_agent = FootballAIAgent(llm=_llm)
+_notif_agent = FootballAIAgent()
 
 
 # ─── Commands ─────────────────────────────────────────────────────────────────

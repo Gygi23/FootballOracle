@@ -232,13 +232,13 @@ VERFÜGBARE TOOLS
    → ELO-Rating ist der wichtigste Wert: höher = stärker (Spanien ~1970, Frankreich ~1916).
    → Parameter: team_name
 
-9. get_tournament_team_summary
+6. get_tournament_team_summary
    → Aggregierte WM-2026-Turnierstatistiken pro Team (nur abgeschlossene Spiele).
    → Liefert: Spiele, Siege/Unentschieden/Niederlagen, Tore, Gegentore, Schüsse, Ballbesitz, Pässe, Paraden, Fouls.
    → Verwende dieses Tool wenn ein Team bereits WM-Spiele absolviert hat — zeigt die echte Turnierform.
    → Parameter: team_name, season (default: 2026)
 
-10. get_odds_history
+7. get_odds_history
    → Zeitlicher Quoten-Verlauf (alle Snapshots) für ein konkretes Fixture.
    → Liefert: recorded_at, home_odds, draw_odds, away_odds — chronologisch sortiert.
    → Verwenden wenn: nach Quotenbewegungen gefragt wird, ob "informiertes Geld" fliesst,
@@ -247,14 +247,14 @@ VERFÜGBARE TOOLS
      Schnelle Bewegung kurz vor Anpfiff = Aufstellungs- oder Verletzungsinfo eingepreist.
    → Parameter: fixture_id (zwingend), limit (Standard 20)
 
-12. get_exact_score_odds
+8. get_exact_score_odds
    → Wahrscheinlichste Ergebnisse aus Exact-Score-Buchmacher-Quoten.
    → Liefert: scoreline (z.B. "1:0"), odds_avg, probability (normalisiert, Margin herausgerechnet).
    → Verwenden wenn nach dem wahrscheinlichsten Ergebnis gefragt wird.
    → Beispiel: "1:0 mit 18%, 0:0 mit 12%, 2:1 mit 10%"
    → Parameter: fixture_id (zwingend), top_n (Standard 5)
 
-11. get_current_time
+9. get_current_time
    → Gibt die aktuelle Uhrzeit in UTC zurück.
    → IMMER aufrufen wenn gefragt wird: "In wie vielen Minuten beginnt das nächste Spiel?",
      "Wann ist heute das nächste Spiel?", "Wie lange noch bis zum Anpfiff?",
@@ -262,17 +262,31 @@ VERFÜGBARE TOOLS
    → Alle match_date-Werte in der DB sind ebenfalls UTC — direkt vergleichbar.
    → Keine Parameter erforderlich.
 
-6. get_head_to_head
+10. get_head_to_head
    → Historische Direktvergleiche zweier Teams.
    → Parameter: team1, team2
 
-7. get_team_matches
+11. get_team_matches
    → Letzte N historische Spiele eines Teams.
    → Parameter: team_name, limit
 
-8. calculate_team_record
-   → Historische Bilanz (Siege/Unentschieden/Niederlagen).
-   → Parameter: team_name, optional stage
+12. calculate_team_record
+   → Historische Bilanz (Siege/Unentschieden/Niederlagen) aus der matches-Tabelle.
+   → Liefert: Spiele, Siege, Unentschieden, Niederlagen, Tore, Gegentore, Tordifferenz.
+   → Parameter: team_name, optional stage (z.B. WC, QUAL, FRIENDLY)
+
+13. get_historical_group_record
+   → Historische Vergleichstabelle für eine Gruppe von Teams (aus matches, nicht aus WM 2026).
+   → Nützlich um zu sehen wie sich Gruppe-X-Teams historisch in WM-Spielen geschlagen haben.
+   → Liefert: Spiele, Siege, Unentschieden, Niederlagen, Tore, Punkte — sortiert nach Punkten.
+   → KEIN Ersatz für get_tournament_standings — das ist historischer Kontext.
+   → Parameter: teams (Liste von Teamnamen), stage (Standard: "WC")
+
+14. get_agent_predictions
+   → Gespeicherte Vorhersagen des eigenen Agenten aus agent_predictions.
+   → Liefert: home_win_prob, draw_prob, away_win_prob, predicted_winner, confidence.
+   → Verwenden wenn gefragt wird was der Agent früher für ein Spiel vorhergesagt hat.
+   → Parameter: team1, team2 (optional), limit (Standard 5)
 
 ═══════════════════════════════════════════════════════════
 STANDARD-ABLAUF FÜR PROGNOSE-FRAGEN
