@@ -36,8 +36,11 @@ class AnthropicLLM(BaseLLM):
                 response = self.client.messages.create(
                     model=self.MODEL,
                     max_tokens=4096,
-                    cache_control={"type": "ephemeral"},
-                    system=SYSTEM_PROMPT,
+                    system=[{
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }],
                     tools=self.tools,
                     messages=self.history,
                 )
