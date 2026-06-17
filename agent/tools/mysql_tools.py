@@ -576,66 +576,7 @@ TOOL_GET_TOURNAMENT_STANDINGS = {
 
 
 # -----------------------------------------------------------------------------
-# Tool 8: get_agent_predictions
-# -----------------------------------------------------------------------------
-
-
-def get_agent_predictions(
-    team1: str | None = None,
-    team2: str | None = None,
-    limit: int = 5,
-) -> str:
-    limit = min(int(limit), 50)
-
-    params: dict[str, Any] = {"limit": limit}
-    conditions: list[str] = []
-
-    if team1 and team2:
-        conditions.append(
-            "((home_team = :team1 AND away_team = :team2) OR (home_team = :team2 AND away_team = :team1))"
-        )
-        params["team1"] = team1
-        params["team2"] = team2
-    elif team1:
-        conditions.append("(home_team = :team OR away_team = :team)")
-        params["team"] = team1
-
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-
-    sql = f"""
-    SELECT
-        home_team, away_team,
-        home_win_prob, draw_prob, away_win_prob,
-        predicted_winner, confidence, created_at
-    FROM agent_predictions
-    {where_clause}
-    ORDER BY created_at DESC
-    LIMIT :limit
-    """
-
-    return query_to_json(sql, params)
-
-
-TOOL_GET_AGENT_PREDICTIONS = {
-    "name": "get_agent_predictions",
-    "description": (
-        "Holt gespeicherte Vorhersagen des eigenen Agenten aus agent_predictions. "
-        "Enthaelt Home-/Draw-/Away-Wahrscheinlichkeiten, vorhergesagten Sieger und Confidence."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "team1": {"type": "string", "description": "Optionales erstes Team."},
-            "team2": {"type": "string", "description": "Optionales zweites Team fuer ein spezifisches Duell."},
-            "limit": {"type": "integer", "description": "Anzahl Vorhersagen. Standard 5, Maximum 50.", "default": 5},
-        },
-        "required": [],
-    },
-}
-
-
-# -----------------------------------------------------------------------------
-# Tool 9: get_api_predictions
+# Tool 8: get_api_predictions
 # -----------------------------------------------------------------------------
 
 
@@ -918,7 +859,100 @@ TOOL_GET_EXACT_SCORE_ODDS = {
 
 
 # -----------------------------------------------------------------------------
-# Tool 14: get_current_time
+# Tool 14: get_team_phase_stats
+# -----------------------------------------------------------------------------
+
+
+def get_team_phase_stats(team_name: str, season: int = 2026) -> str:
+    """Vergleicht Erste- vs. Zweite-Halbzeit-Statistiken eines Teams über alle WM-Spiele."""
+    sql = """
+    WITH tf AS (
+        SELECT fixture_id,
+               CASE WHEN home_team = :team THEN 'home' ELSE 'away' END AS side
+        FROM tournament_fixtures
+        WHERE season = :season AND league_id = 1
+          AND status IN ('FT','AET','PEN')
+          AND (home_team = :team OR away_team = :team)
+    ),
+    ht_data AS (
+        SELECT s.fixture_id,
+               CASE WHEN tf.side='home' THEN s.home_score             ELSE s.away_score             END AS goals,
+               CASE WHEN tf.side='home' THEN s.home_shots_total       ELSE s.away_shots_total       END AS shots,
+               CASE WHEN tf.side='home' THEN s.home_shots_on_target   ELSE s.away_shots_on_target   END AS sot,
+               CASE WHEN tf.side='home' THEN s.home_shots_insidebox   ELSE s.away_shots_insidebox   END AS shots_inbox,
+               CASE WHEN tf.side='home' THEN s.home_possession        ELSE s.away_possession        END AS poss,
+               CASE WHEN tf.side='home' THEN s.home_saves             ELSE s.away_saves             END AS saves,
+               CASE WHEN tf.side='home' THEN s.home_corners           ELSE s.away_corners           END AS corners,
+               CASE WHEN tf.side='home' THEN s.home_fouls             ELSE s.away_fouls             END AS fouls,
+               ROW_NUMBER() OVER (PARTITION BY s.fixture_id ORDER BY s.minute DESC, s.id DESC) AS rn
+        FROM fixture_snapshots s
+        JOIN tf ON tf.fixture_id = s.fixture_id
+        WHERE s.minute BETWEEN 1 AND 48
+    ),
+    ft_data AS (
+        SELECT s.fixture_id,
+               CASE WHEN tf.side='home' THEN s.home_score             ELSE s.away_score             END AS goals,
+               CASE WHEN tf.side='home' THEN s.home_shots_total       ELSE s.away_shots_total       END AS shots,
+               CASE WHEN tf.side='home' THEN s.home_shots_on_target   ELSE s.away_shots_on_target   END AS sot,
+               CASE WHEN tf.side='home' THEN s.home_shots_insidebox   ELSE s.away_shots_insidebox   END AS shots_inbox,
+               CASE WHEN tf.side='home' THEN s.home_possession        ELSE s.away_possession        END AS poss,
+               CASE WHEN tf.side='home' THEN s.home_saves             ELSE s.away_saves             END AS saves,
+               CASE WHEN tf.side='home' THEN s.home_corners           ELSE s.away_corners           END AS corners,
+               CASE WHEN tf.side='home' THEN s.home_fouls             ELSE s.away_fouls             END AS fouls,
+               ROW_NUMBER() OVER (PARTITION BY s.fixture_id ORDER BY s.minute DESC, s.id DESC) AS rn
+        FROM fixture_snapshots s
+        JOIN tf ON tf.fixture_id = s.fixture_id
+        WHERE s.minute > 45
+    )
+    SELECT
+        COUNT(*)                                   AS games_with_data,
+        -- Erste Halbzeit
+        SUM(ht.goals)                              AS goals_first_half,
+        SUM(ht.shots)                              AS shots_first_half,
+        SUM(ht.sot)                                AS shots_on_target_first_half,
+        SUM(ht.shots_inbox)                        AS shots_insidebox_first_half,
+        ROUND(AVG(ht.poss), 1)                     AS avg_possession_first_half,
+        SUM(ht.saves)                              AS goalkeeper_saves_first_half,
+        SUM(ht.corners)                            AS corners_first_half,
+        SUM(ht.fouls)                              AS fouls_first_half,
+        -- Zweite Halbzeit (Differenz FT minus HT)
+        SUM(ft.goals        - ht.goals)            AS goals_second_half,
+        SUM(ft.shots        - ht.shots)            AS shots_second_half,
+        SUM(ft.sot          - ht.sot)              AS shots_on_target_second_half,
+        SUM(ft.shots_inbox  - ht.shots_inbox)      AS shots_insidebox_second_half,
+        ROUND(AVG(ft.poss), 1)                     AS avg_possession_second_half,
+        SUM(ft.saves        - ht.saves)            AS goalkeeper_saves_second_half,
+        SUM(ft.corners      - ht.corners)          AS corners_second_half,
+        SUM(ft.fouls        - ht.fouls)            AS fouls_second_half
+    FROM ht_data ht
+    JOIN ft_data ft ON ft.fixture_id = ht.fixture_id AND ft.rn = 1
+    WHERE ht.rn = 1
+    """
+    return query_to_json(sql, {"team": team_name, "season": season})
+
+
+TOOL_GET_TEAM_PHASE_STATS = {
+    "name": "get_team_phase_stats",
+    "description": (
+        "Vergleicht Erste- vs. Zweite-Halbzeit-Performance eines Teams über alle WM-2026-Spiele. "
+        "Liefert pro Halbzeit: Tore, Schüsse, Schüsse aufs Tor, Schüsse im Strafraum, "
+        "Ballbesitz, Torwart-Paraden, Eckbälle und Fouls. "
+        "Erkennt Muster wie 'Team X beginnt stark aber lässt nach' oder 'Team Y kommt nach der Pause besser'. "
+        "Verwenden bei Prognose-Fragen wenn Spielphasen-Muster relevant sind."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "team_name": {"type": "string", "description": "Teamname auf Englisch."},
+            "season": {"type": "integer", "description": "Saison/Jahr. Standard 2026.", "default": 2026},
+        },
+        "required": ["team_name"],
+    },
+}
+
+
+# -----------------------------------------------------------------------------
+# Tool 15: get_current_time
 # -----------------------------------------------------------------------------
 
 
@@ -978,12 +1012,12 @@ ALL_TOOLS = [
     TOOL_GET_HISTORICAL_GROUP_RECORD,
     TOOL_GET_TOURNAMENT_FIXTURES,
     TOOL_GET_TOURNAMENT_STANDINGS,
-    TOOL_GET_AGENT_PREDICTIONS,
     TOOL_GET_API_PREDICTIONS,
     TOOL_GET_FIXTURE_WITH_PREDICTION,
     TOOL_GET_TOURNAMENT_TEAM_SUMMARY,
     TOOL_GET_ODDS_HISTORY,
     TOOL_GET_EXACT_SCORE_ODDS,
+    TOOL_GET_TEAM_PHASE_STATS,
     TOOL_GET_CURRENT_TIME,
 ]
 
@@ -995,12 +1029,12 @@ TOOL_FUNCTIONS: dict[str, Callable[..., str]] = {
     "get_historical_group_record": get_historical_group_record,
     "get_tournament_fixtures": get_tournament_fixtures,
     "get_tournament_standings": get_tournament_standings,
-    "get_agent_predictions": get_agent_predictions,
     "get_api_predictions": get_api_predictions,
     "get_fixture_with_prediction": get_fixture_with_prediction,
     "get_tournament_team_summary": get_tournament_team_summary,
     "get_odds_history": get_odds_history,
     "get_exact_score_odds": get_exact_score_odds,
+    "get_team_phase_stats": get_team_phase_stats,
     "get_current_time": get_current_time,
 }
 

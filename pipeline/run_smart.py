@@ -178,7 +178,10 @@ def run_scores_update():
     from fetch_live import run_live_update
     last_snapshot = get_last_run_time('last_snapshot')
     new_snapshot_time = run_live_update(last_snapshot)
-    if new_snapshot_time != last_snapshot:
+    # Beide auf naive UTC normalisieren vor Vergleich (run_live_update gibt tz-aware zurück)
+    new_naive  = new_snapshot_time.replace(tzinfo=None) if new_snapshot_time.tzinfo else new_snapshot_time
+    last_naive = last_snapshot.replace(tzinfo=None) if last_snapshot.tzinfo else last_snapshot
+    if new_naive != last_naive:
         log_run('last_snapshot')
 
 
