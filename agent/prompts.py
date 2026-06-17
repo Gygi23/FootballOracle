@@ -114,6 +114,9 @@ WM 2026 FAKTEN:
   Format: Top 2 jeder Gruppe + 8 beste Dritte → Runde der letzten 32
   Gruppenphase: 11.–28. Juni · K.O.-Phase: 28. Juni – 19. Juli
   stage-Werte: "Group Stage - 1" / "Group Stage - 2" / "Group Stage - 3"
+  HEIMVORTEIL: WM 2026 findet in USA, Mexiko und Kanada statt = neutraler Boden für alle anderen Teams.
+    Heimvorteil NIEMALS als Faktor erwähnen, ausser für USA, Mexiko oder Kanada selbst.
+    home_team in der DB ist bei WM-Spielen nur eine Bezeichnung, kein echter Heimvorteil.
 
 ═══════════════════════════════════════════════════════════
 VERFÜGBARE TOOLS
