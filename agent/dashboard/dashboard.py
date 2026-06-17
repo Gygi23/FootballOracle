@@ -319,13 +319,6 @@ def load_api_predictions():
     return r.get("result", [])
 
 @st.cache_data(ttl=300)
-def load_agent_predictions():
-    from agent.tools.mysql_tools import get_agent_predictions
-    import json
-    r = json.loads(get_agent_predictions(limit=100))
-    return r.get("result", [])
-
-@st.cache_data(ttl=300)
 def load_exact_score_odds(fixture_id: int) -> list[dict]:
     """Top-5 Exact-Score-Ergebnisse aus odds_exact_score für ein Fixture."""
     from sqlalchemy import text
@@ -1173,7 +1166,7 @@ auto_refresh()
 if st.session_state.page == "uebersicht":
     col_main, col_chat = st.columns([3, 1])
     api_preds   = {p["fixture_id"]: p for p in load_api_predictions() if p.get("fixture_id")}
-    agent_preds = {(p["home_team"], p["away_team"]): p for p in load_agent_predictions()}
+    agent_preds = {}
 
     with col_main:
         live = load_live_fixtures()
@@ -1210,7 +1203,7 @@ if st.session_state.page == "uebersicht":
 elif st.session_state.page == "gruppe":
     col_main, col_chat = st.columns([3, 1])
     api_preds   = {p["fixture_id"]: p for p in load_api_predictions() if p.get("fixture_id")}
-    agent_preds = {(p["home_team"], p["away_team"]): p for p in load_agent_predictions()}
+    agent_preds = {}
 
     with col_main:
         standings = load_standings()
