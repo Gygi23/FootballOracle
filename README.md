@@ -6,6 +6,7 @@ Ein KI-gestütztes Analyse-System für die FIFA Weltmeisterschaft 2026. Kombinie
 
 - **Dashboard** — Interaktives Streamlit-Dashboard mit Live-Spielkarten, Gruppenübersicht, Quoten-Bewegungen und Turnierstatistiken pro Team
 - **Agent** — KI-Chatbot (Gemini/Claude/Ollama) beantwortet Fragen zu Spielen, Mannschaften und liefert begründete Prognosen
+- **Telegram-Bot** — Derselbe Agent als Telegram-Bot, inkl. automatischer Benachrichtigungen vor Spielbeginn und bei starken Quoten-Bewegungen
 - **Live-Tracking** — Minutengenaue Spielstatistiken (Schüsse, Ballbesitz, Pässe, etc.) werden alle 60 Sekunden aktualisiert
 - **ELO-System** — Eigenberechnetes ELO-Rating aus 15.000+ historischen Spielen
 
@@ -66,24 +67,10 @@ pip install -r requirements.txt
 
 ### 2. Umgebungsvariablen konfigurieren
 
-`.env` Datei im Projektroot erstellen:
+`.env.example` kopieren und mit eigenen Werten füllen:
 
-```env
-# Datenbank
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=dein_passwort
-DB_NAME=footballai
-
-# APIs
-API_FOOTBALL_KEY=dein_api_football_key
-
-# LLM (eines davon)
-GEMINI_API_KEY=dein_gemini_key
-ANTHROPIC_API_KEY=dein_anthropic_key   # alternativ
-
-# LLM-Provider: gemini | claude | ollama
-LLM_PROVIDER=gemini
+```bash
+cp .env.example .env
 ```
 
 ### 3. Datenbank initialisieren
@@ -122,6 +109,14 @@ streamlit run agent/dashboard/dashboard.py
 ```bash
 python main.py
 ```
+
+### 7. Telegram-Bot starten (optional)
+
+```bash
+python telegram_bot.py
+```
+
+Befehle im Bot: `/heute` (heutige Spiele), `/neu` (neue Sitzung starten). Der Bot meldet sich zusätzlich automatisch 30 Minuten vor Spielbeginn und bei starken Quoten-Bewegungen (> 0.25). Ohne `ALLOWED_CHAT_IDS` hat nur die in `TELEGRAM_CHAT_ID` hinterlegte Person Zugriff.
 
 ---
 
