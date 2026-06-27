@@ -1,4 +1,4 @@
-# footballAI — WM 2026 Analyse & Prognose
+# FootballOracle — WM 2026 Analyse & Prognose
 
 Ein KI-gestütztes Analyse-System für die FIFA Weltmeisterschaft 2026. Kombiniert Buchmacher-Quoten, ELO-Ratings, historische Daten und Live-Statistiken zu fundierten Spielprognosen.
 
