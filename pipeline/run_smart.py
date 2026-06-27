@@ -208,8 +208,13 @@ def main():
     if missed:
         names = ', '.join(f"{f['home_team']} vs {f['away_team']}" for f in missed)
         print(f"[smart] Verpasst (nie getrackt): {names} → Fixture-Update")
-        from run_daily import update_today_fixtures
-        update_today_fixtures()
+        from run_daily import api_get
+        from fetch_live import update_fixture
+        ids_str = "-".join(str(f["fixture_id"]) for f in missed)
+        data = api_get("fixtures", {"ids": ids_str})
+        if data:
+            for fixture in data.get("response", []):
+                update_fixture(fixture)
         run_post_game_update()
 
     # 1. Spiele gerade live? → Scores sofort updaten

@@ -444,20 +444,20 @@ def get_tournament_fixtures(
     if stage:
         conditions.append("stage = :stage")
         params["stage"] = stage
+    FINISHED_STATUSES = {"FT", "AET", "PEN"}
+    status_list: list[str] = []
     if status:
-        if "-" in status:
-            # Mehrere Status: "1H-HT-2H" → IN ('1H', 'HT', '2H')
-            status_list = status.split("-")
-            placeholders = ", ".join([f":status{i}" for i in range(len(status_list))])
-            conditions.append(f"status IN ({placeholders})")
-            for i, s in enumerate(status_list):
-                params[f"status{i}"] = s
-        else:
-            # Einzelner Status
-            conditions.append("status = :status")
-            params["status"] = status
+        status_list = status.split("-") if "-" in status else [status]
+        placeholders = ", ".join([f":status{i}" for i in range(len(status_list))])
+        conditions.append(f"status IN ({placeholders})")
+        for i, s in enumerate(status_list):
+            params[f"status{i}"] = s
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    # Abgeschlossene Spiele: neueste zuerst (z.B. "letzte Resultate").
+    # Alle anderen (z.B. NS/kommende Spiele): nächste zuerst.
+    order_direction = "DESC" if status_list and set(status_list) <= FINISHED_STATUSES else "ASC"
 
     sql = f"""
     SELECT
@@ -481,7 +481,7 @@ def get_tournament_fixtures(
         updated_at
     FROM tournament_fixtures
     {where_clause}
-    ORDER BY match_date ASC
+    ORDER BY match_date {order_direction}
     LIMIT :limit
     """
 
