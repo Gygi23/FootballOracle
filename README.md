@@ -73,7 +73,19 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-### 3. Datenbank initialisieren
+### 3. Datenbank befüllen
+
+Zwei Möglichkeiten, je nachdem ob ein eigener API-Football-Key vorhanden ist:
+
+**Variante A — mit bereitgestelltem DB-Export:**
+
+```bash
+mysql -u <user> -p <db_name> < data.sql
+```
+
+Damit ist die Datenbank direkt mit dem finalen Datenstand (historische Daten, WM-2026-Fixtures, Odds, ELO/KPIs, Predictions) befüllt — weiter mit Schritt 5.
+
+**Variante B — eigenständig über die API aufbauen (benötigt `API_FOOTBALL_KEY` in `.env`):**
 
 ```bash
 # Tabellen erstellen (Frisch-Setup)
@@ -84,11 +96,7 @@ python pipeline/load_historical.py
 
 # ELO-Ratings + Team-KPIs berechnen
 python pipeline/compute_kpis.py
-```
 
-### 4. WM-2026-Daten laden
-
-```bash
 # Alle Fixtures der WM 2026 laden
 python pipeline/load_tournament_data.py
 
